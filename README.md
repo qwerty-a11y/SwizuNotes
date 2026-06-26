@@ -23,6 +23,8 @@ SwizuNotes 是一个从零开始构建的个人博客系统，目前正处于开
 server/src/main/java/com/swizu/swizunotes/
 
 - SwizuNotesApplication.java ：启动类
+- controller/ ：控制器
+- entity/ ：实体类
 - 待完善...
 
 server/src/main/resources/
@@ -38,7 +40,7 @@ server/src/main/resources/
 ### 开发路线图
 
 - [x] 项目初始化
-- [ ] 数据库表结构设计
+- [x] 数据库表结构设计
 - [ ] JWT 认证实现
 - [ ] 文章 CRUD 接口
 - [ ] 媒体上传与管理
