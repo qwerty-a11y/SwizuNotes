@@ -15,26 +15,18 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.swizu.swizunotes.entity;
+package com.swizu.swizunotes.dto.request;
 
-import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 @Data
-@Entity
-@Table(name = "users")
-public class User {
-    @Id
-    @Column(name = "id")
-    @GeneratedValue(strategy = GenerationType.AUTO)
-    private Integer id;
-
-    @Column(name = "account")
+public class LoginRequest {
+    @NotBlank(message = "账号不能为空")
+    @Size(min = 1, max = 20, message = "账号长度不能超过20")
     private String account;
-
-    @Column(name = "username")
-    private String username;
-
-    @Column(name = "password")
+    @NotBlank(message = "密码不能为空")
+    @Size(min = 6, max = 32, message = "密码长度应介于6到32之间")
     private String password;
 }

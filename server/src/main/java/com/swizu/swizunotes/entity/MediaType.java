@@ -20,5 +20,6 @@ package com.swizu.swizunotes.entity;
 public enum MediaType {
     image,
     video,
+    audio,
     file
 }

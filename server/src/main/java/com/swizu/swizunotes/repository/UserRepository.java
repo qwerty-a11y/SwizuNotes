@@ -15,26 +15,18 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.swizu.swizunotes.entity;
+package com.swizu.swizunotes.repository;
 
-import jakarta.persistence.*;
-import lombok.Data;
+import com.swizu.swizunotes.entity.User;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
 
-@Data
-@Entity
-@Table(name = "users")
-public class User {
-    @Id
-    @Column(name = "id")
-    @GeneratedValue(strategy = GenerationType.AUTO)
-    private Integer id;
+import java.util.Optional;
 
-    @Column(name = "account")
-    private String account;
+@Repository
+public interface UserRepository extends JpaRepository<User, Integer> {
 
-    @Column(name = "username")
-    private String username;
+    Optional<User> findByAccount(String account);
 
-    @Column(name = "password")
-    private String password;
+    boolean existsByAccount(String account);
 }
