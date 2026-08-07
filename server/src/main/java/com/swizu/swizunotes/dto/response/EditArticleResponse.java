@@ -15,20 +15,24 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.swizu.swizunotes.repository;
+package com.swizu.swizunotes.dto.response;
 
-import com.swizu.swizunotes.entity.User;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
+import com.swizu.swizunotes.entity.ArticleStatus;
+import lombok.Data;
 
-import java.util.Optional;
+import java.time.OffsetDateTime;
 
-@Repository
-public interface UserRepository extends JpaRepository<User, Integer> {
+@Data
+public class EditArticleResponse {
+    private Integer id;
+    private OffsetDateTime publishTime;
+    private OffsetDateTime modifyTime;
+    private ArticleStatus status;
 
-    Optional<User> findByAccount(String account);
-
-    boolean existsByAccount(String account);
-
-    User save(User user);
+    public EditArticleResponse(Integer id, OffsetDateTime publishTime, OffsetDateTime modifyTime, ArticleStatus status) {
+        this.id = id;
+        this.publishTime = publishTime;
+        this.modifyTime = modifyTime;
+        this.status = status;
+    }
 }

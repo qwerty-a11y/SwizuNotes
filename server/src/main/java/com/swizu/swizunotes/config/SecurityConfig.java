@@ -41,8 +41,8 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception{
         return http
-                .authorizeHttpRequests(auth -> auth.requestMatchers("/api/session/**").permitAll())
-                .authorizeHttpRequests(auth -> auth.requestMatchers(HttpMethod.GET, "/api/articles/**").permitAll())
+                .authorizeHttpRequests(auth -> auth.requestMatchers("/api/v1/session/**").permitAll())
+                .authorizeHttpRequests(auth -> auth.requestMatchers(HttpMethod.GET, "/api/v1/articles/**").permitAll())
                 .authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
                 .formLogin(form -> form.loginProcessingUrl("/login").permitAll())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

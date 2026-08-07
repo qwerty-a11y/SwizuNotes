@@ -17,18 +17,26 @@
 
 package com.swizu.swizunotes.repository;
 
-import com.swizu.swizunotes.entity.User;
+import com.swizu.swizunotes.entity.Article;
+import com.swizu.swizunotes.entity.ArticleStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface UserRepository extends JpaRepository<User, Integer> {
+public interface ArticleRepository extends JpaRepository<Article, Integer> {
 
-    Optional<User> findByAccount(String account);
+    Optional<Article> findById(Integer id);
 
-    boolean existsByAccount(String account);
+    boolean existsById(Integer id);
 
-    User save(User user);
+    Page<Article> findAllByAuthorId(Integer authorId, Pageable pageable);
+
+    Page<Article> findAllByAuthorIdAndStatus(Integer authorId, ArticleStatus status, Pageable pageable);
+
+    Article save(Article article);
 }

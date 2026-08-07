@@ -17,18 +17,21 @@
 
 package com.swizu.swizunotes.repository;
 
-import com.swizu.swizunotes.entity.User;
+import com.swizu.swizunotes.entity.Media;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface UserRepository extends JpaRepository<User, Integer> {
+public interface MediaRepository extends JpaRepository<Media, String> {
 
-    Optional<User> findByAccount(String account);
+    Optional<Media> findById(String id);
 
-    boolean existsByAccount(String account);
+    List<Media> findByArticleId(Integer articleId);
 
-    User save(User user);
+    void deleteByArticleId(Integer articleId);
+
+    Media save(Media media);
 }

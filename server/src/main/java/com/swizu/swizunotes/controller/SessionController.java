@@ -24,6 +24,8 @@ import com.swizu.swizunotes.services.CustomUserDetailsService;
 import com.swizu.swizunotes.util.JwtUtils;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -31,7 +33,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/session")
+@RequestMapping("/api/v1/session")
 public class SessionController {
 
     @Autowired
@@ -41,8 +43,8 @@ public class SessionController {
     @Autowired
     private CustomUserDetailsService customUserDetailsService;
 
-    @GetMapping("/")
-    public Result<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
+    @PostMapping("/")
+    public ResponseEntity<Result<LoginResponse>> login(@Valid @RequestBody LoginRequest request) {
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         request.getAccount(),
@@ -51,6 +53,6 @@ public class SessionController {
         );
         SecurityContextHolder.getContext().setAuthentication(authentication);
         String jwt = jwtUtils.generateToken(request.getAccount());
-        return new Result<>(Result.SUCCESS, "登录成功", new LoginResponse(jwt));
+        return new ResponseEntity<>(new Result<>("登录成功", new LoginResponse(jwt)), HttpStatus.OK);
     }
 }

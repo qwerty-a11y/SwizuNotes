@@ -15,20 +15,13 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.swizu.swizunotes.repository;
+package com.swizu.swizunotes.entity.MediaMetadata;
 
-import com.swizu.swizunotes.entity.User;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
+import jakarta.validation.constraints.Size;
+import lombok.Data;
 
-import java.util.Optional;
-
-@Repository
-public interface UserRepository extends JpaRepository<User, Integer> {
-
-    Optional<User> findByAccount(String account);
-
-    boolean existsByAccount(String account);
-
-    User save(User user);
+@Data
+public class Image {
+    @Size(min = 1, max = 80, message = "名称长度不能超过80")
+    private String name;
 }

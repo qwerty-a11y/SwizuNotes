@@ -41,4 +41,7 @@ public class Media {
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     private MediaType type;
+
+    @Column(name = "metadata", columnDefinition = "jsonb")
+    private String metadata;
 }

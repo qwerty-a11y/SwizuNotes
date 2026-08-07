@@ -15,20 +15,10 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.swizu.swizunotes.repository;
+package com.swizu.swizunotes.common.exception;
 
-import com.swizu.swizunotes.entity.User;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
-
-import java.util.Optional;
-
-@Repository
-public interface UserRepository extends JpaRepository<User, Integer> {
-
-    Optional<User> findByAccount(String account);
-
-    boolean existsByAccount(String account);
-
-    User save(User user);
+public class UnauthorizedException extends RuntimeException {
+    public UnauthorizedException(String message) {
+        super(message);
+    }
 }

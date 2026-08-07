@@ -17,18 +17,15 @@
 
 package com.swizu.swizunotes.repository;
 
-import com.swizu.swizunotes.entity.User;
+import com.swizu.swizunotes.entity.StaticResource;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
 
 @Repository
-public interface UserRepository extends JpaRepository<User, Integer> {
+public interface StaticResourceReposity extends JpaRepository<StaticResource, String> {
 
-    Optional<User> findByAccount(String account);
+    Optional<StaticResource> findById(String id);
 
-    boolean existsByAccount(String account);
-
-    User save(User user);
 }

@@ -1,0 +1,19 @@
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Java / Gradle
+server/build/
+server/.gradle/
+*.class
+
+# Node
+client/node_modules/
+client/dist/
+
+# 本地配置（含敏感信息，勿提交）
+server/src/main/resources/application-local.yml
+
+# 其他
+*.log

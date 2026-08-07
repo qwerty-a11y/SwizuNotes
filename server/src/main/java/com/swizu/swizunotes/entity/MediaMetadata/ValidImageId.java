@@ -15,20 +15,21 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.swizu.swizunotes.repository;
+package com.swizu.swizunotes.entity.MediaMetadata;
 
-import com.swizu.swizunotes.entity.User;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
+import jakarta.validation.Constraint;
+import jakarta.validation.Payload;
 
-import java.util.Optional;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
-@Repository
-public interface UserRepository extends JpaRepository<User, Integer> {
-
-    Optional<User> findByAccount(String account);
-
-    boolean existsByAccount(String account);
-
-    User save(User user);
+@Target({ElementType.FIELD, ElementType.PARAMETER})
+@Retention(RetentionPolicy.RUNTIME)
+@Constraint(validatedBy = ValidImageIdValidator.class)
+public @interface ValidImageId {
+    String message() default "图片资源ID无效";
+    Class<?>[] groups() default {};
+    Class<? extends Payload>[] payload() default {};
 }
