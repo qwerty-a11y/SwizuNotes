@@ -15,13 +15,10 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.swizu.swizunotes.entity.MediaMetadata;
+package com.swizu.swizunotes.common.exception;
 
-import jakarta.validation.constraints.Size;
-import lombok.Data;
-
-@Data
-public class Image {
-    @Size(min = 1, max = 80, message = "名称长度不能超过80")
-    private String name;
+public class InternalException extends RuntimeException {
+    public InternalException(String message) {
+        super(message);
+    }
 }

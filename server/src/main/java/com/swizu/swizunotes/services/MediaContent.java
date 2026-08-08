@@ -15,13 +15,10 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.swizu.swizunotes.entity.MediaMetadata;
+package com.swizu.swizunotes.services;
 
-import jakarta.validation.constraints.Size;
-import lombok.Data;
+import com.swizu.swizunotes.entity.Media;
+import org.springframework.core.io.Resource;
 
-@Data
-public class File {
-    @Size(min = 0, max = 80, message = "文件名长度不能大于80")
-    private String name;
+public record MediaContent(Media media, Resource resource) {
 }

@@ -40,4 +40,14 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Result<Void>> handleUnauthorized(UnauthorizedException e) {
         return new ResponseEntity<>(new Result<>(e.getMessage(), null), HttpStatus.UNAUTHORIZED);
     }
+
+    @ExceptionHandler(InternalException.class)
+    public ResponseEntity<Result<Void>> handleInternal(InternalException e) {
+        return new ResponseEntity<>(new Result<>(e.getMessage(), null), HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    @ExceptionHandler(BadRequestException.class)
+    public ResponseEntity<Result<Void>> handleBadRequest(BadRequestException e) {
+        return new ResponseEntity<>(new Result<>(e.getMessage(), null), HttpStatus.BAD_REQUEST);
+    }
 }

@@ -30,12 +30,12 @@ SwizuNotes 是一个从零开始构建的个人博客系统，目前正处于开
 #### 后端
 
 1. 创建数据库：`CREATE DATABASE swizunotes;`
-2. 在 `server/src/main/resources/application.yml` 中配置数据库连接
+2. 在 `server/src/main/resources/application.yml` 中配置数据库连接（密码通过环境变量 `DB_PASSWORD` 提供）
 3. 启动：
 
 ```sh
 cd server
-./gradlew bootRun
+$env:DB_PASSWORD="你的密码"; .\gradlew.bat bootRun
 ```
 
 #### 前端
@@ -56,12 +56,12 @@ server/src/main/java/com/swizu/swizunotes/
 
 - `ServerApplication.java` ：启动类
 - `controller/` ：控制器（只做参数绑定与响应封装）
-- `services/` ：业务层（业务规则、事务边界）
+- `services/` ：业务层（业务规则、事务边界，含文章/媒体/静态资源/存储服务）
 - `repository/` ：数据访问层（Spring Data JPA）
 - `entity/` ：实体类
+- `entity/MediaMetadata/` ：Media 实体 `metadata`（jsonb）字段的值对象与校验
 - `dto/request/` ：请求 DTO
 - `dto/response/` ：响应 DTO
-- `dto/MediaMetadata/` ：Media 实体 `metadata`（jsonb）字段的值对象
 - `config/` ：配置类（SecurityConfig 等）
 - `filter/` ：JWT 认证过滤器
 - `common/` ：通用类（Result 响应包装、全局异常处理器、自定义异常）
@@ -97,6 +97,7 @@ client/
 #### HTTP 状态码
 
 - `200` ：成功
+- `204` ：删除成功（无响应体）
 - `400` ：请求参数错误
 - `401` ：未认证
 - `403` ：无权限
@@ -107,7 +108,7 @@ client/
 
 #### 认证
 
-除登录接口（`POST /api/v1/session/`）与部分公开 GET 接口外，其余接口需在请求头携带：
+除登录接口（`POST /api/v1/session/`）与公开 GET 接口（已发布文章、媒体、静态资源）外，其余接口需在请求头携带：
 
 ```
 Authorization: Bearer <JWT>
@@ -120,13 +121,11 @@ Authorization: Bearer <JWT>
 - [x] 项目初始化
 - [x] 数据库表结构设计
 - [x] JWT 认证实现
-- [x] 文章 CRUD 接口（基础版）
-- [ ] 媒体上传与管理
-- [ ] 注册接口
+- [x] 文章 CRUD 接口
+- [x] 媒体上传与管理
+- [x] 静态资源白名单
 - [ ] 前端页面开发
 - [ ] 部署上线
-
-详细任务见 `server/TODO.md`。
 
 ---
 

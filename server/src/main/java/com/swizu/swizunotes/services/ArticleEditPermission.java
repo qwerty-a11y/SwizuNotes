@@ -15,32 +15,13 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.swizu.swizunotes.entity;
+package com.swizu.swizunotes.services;
 
-import jakarta.persistence.*;
-import lombok.Data;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
-
-@Data
-@Entity
-@Table(name = "media")
-public class Media {
-    @Id
-    @Column(name = "id")
-    private String id;
-
-    @Column(name = "article_id")
-    private Integer articleId;
-
-    @Column(name = "type")
-    @Enumerated(EnumType.STRING)
-    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    private MediaCategory type;
-
-    @Column(name = "mime_type", length = 128)
-    private String mimeType;
-
-    @Column(name = "metadata", columnDefinition = "jsonb")
-    private String metadata;
+public enum ArticleEditPermission {
+    /** 作者本人，可编辑 */
+    EDITABLE,
+    /** 可查看但不可编辑（已发布文章），存在性不隐藏 */
+    VIEW_ONLY,
+    /** 不可查看也不可编辑（不存在或他人草稿），存在性隐藏 */
+    HIDDEN
 }

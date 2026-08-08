@@ -15,11 +15,24 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.swizu.swizunotes.entity;
+package com.swizu.swizunotes.dto.response;
 
-public enum MediaType {
-    image,
-    video,
-    audio,
-    file
+import com.swizu.swizunotes.entity.MediaCategory;
+import lombok.Data;
+
+@Data
+public class MediaResponse {
+    private String id;
+    private Integer articleId;
+    private MediaCategory type;
+    private String mimeType;
+    private String metadata;
+
+    public MediaResponse(String id, Integer articleId, MediaCategory type, String mimeType, String metadata) {
+        this.id = id;
+        this.articleId = articleId;
+        this.type = type;
+        this.mimeType = mimeType;
+        this.metadata = metadata;
+    }
 }

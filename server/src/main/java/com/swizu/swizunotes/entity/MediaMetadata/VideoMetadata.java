@@ -18,16 +18,10 @@
 package com.swizu.swizunotes.entity.MediaMetadata;
 
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 @Data
-public class Audio {
-    @Size(min = 1, max = 80, message = "标题长度不能超过80")
-    private String title;
-    @ValidImageId
-    private String imageId;
+public class VideoMetadata extends AbstractMediaMetadata {
     @Min(value = 0, message = "时长不能小于0")
     private Integer duration;
 }
-

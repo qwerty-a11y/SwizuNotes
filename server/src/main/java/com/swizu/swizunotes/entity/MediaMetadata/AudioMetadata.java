@@ -15,17 +15,16 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.swizu.swizunotes.repository;
+package com.swizu.swizunotes.entity.MediaMetadata;
 
-import com.swizu.swizunotes.entity.StaticResource;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
+import jakarta.validation.constraints.Min;
+import lombok.Data;
 
-import java.util.Optional;
-
-@Repository
-public interface StaticResourceReposity extends JpaRepository<StaticResource, String> {
-
-    Optional<StaticResource> findById(String id);
-
+@Data
+public class AudioMetadata extends AbstractMediaMetadata {
+    @ValidImageId
+    private String imageId;
+    @Min(value = 0, message = "时长不能小于0")
+    private Integer duration;
 }
+

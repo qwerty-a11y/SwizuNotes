@@ -53,11 +53,26 @@ public class ArticleService {
     public Article getArticle(Integer articleId, Integer userId) {
         Article article = articleRepository.findById(articleId)
                 .orElseThrow(() -> new ResourceNotFoundException("文章不存在"));
-        boolean isAuthor = userId != null && Objects.equals(article.getAuthorId(), userId);
-        if (!isAuthor && article.getStatus() != ArticleStatus.published) {
+        if (getEditPermission(article, userId) == ArticleEditPermission.HIDDEN) {
             throw new ResourceNotFoundException("文章不存在");
         }
         return article;
+    }
+
+    public ArticleEditPermission getEditPermission(Integer articleId, Integer userId) {
+        return articleRepository.findById(articleId)
+                .map(article -> getEditPermission(article, userId))
+                .orElse(ArticleEditPermission.HIDDEN);
+    }
+
+    private ArticleEditPermission getEditPermission(Article article, Integer userId) {
+        if (userId != null && Objects.equals(article.getAuthorId(), userId)) {
+            return ArticleEditPermission.EDITABLE;
+        }
+        if (article.getStatus() == ArticleStatus.published) {
+            return ArticleEditPermission.VIEW_ONLY;
+        }
+        return ArticleEditPermission.HIDDEN;
     }
 
     @Transactional
@@ -81,8 +96,12 @@ public class ArticleService {
         Article oldArticle = articleRepository.findById(articleId)
                 .orElseThrow(() -> new ResourceNotFoundException("文章不存在"));
         if (userId == null || !Objects.equals(oldArticle.getAuthorId(), userId)) {
+            if (oldArticle.getStatus() == ArticleStatus.draft) {
+                throw new ResourceNotFoundException("文章不存在");
+            }
             throw new ForbiddenException("无权限修改文章");
         }
+
         oldArticle.setContent(request.getContent());
         oldArticle.setStatus(request.getStatus());
         oldArticle.setModifyTime(OffsetDateTime.now());

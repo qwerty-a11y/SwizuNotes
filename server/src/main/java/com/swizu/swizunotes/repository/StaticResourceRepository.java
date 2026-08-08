@@ -15,16 +15,17 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.swizu.swizunotes.entity.MediaMetadata;
+package com.swizu.swizunotes.repository;
 
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.Size;
-import lombok.Data;
+import com.swizu.swizunotes.entity.StaticResource;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
 
-@Data
-public class Video {
-    @Size(min = 1, max = 80, message = "名称长度不能超过80")
-    private String name;
-    @Min(value = 0, message = "时长不能小于0")
-    private Integer duration;
+import java.util.Optional;
+
+@Repository
+public interface StaticResourceRepository extends JpaRepository<StaticResource, String> {
+
+    Optional<StaticResource> findById(String id);
+
 }

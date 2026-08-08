@@ -17,7 +17,7 @@
 
 package com.swizu.swizunotes.entity.MediaMetadata;
 
-import com.swizu.swizunotes.entity.MediaType;
+import com.swizu.swizunotes.entity.MediaCategory;
 import com.swizu.swizunotes.repository.MediaRepository;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
@@ -30,6 +30,6 @@ public class ValidImageIdValidator implements ConstraintValidator<ValidImageId, 
     public boolean isValid(String value, ConstraintValidatorContext context) {
         if (value == null) return true;
         if (mediaRepository.findById(value).isEmpty()) return false;
-        else return mediaRepository.findById(value).get().getType() == MediaType.image;
+        else return mediaRepository.findById(value).get().getType() == MediaCategory.image;
     }
 }
