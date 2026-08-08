@@ -65,6 +65,12 @@ public class ArticlesController {
                 articleService.updateArticle(articleId, article, userId(user))));
     }
 
+    @DeleteMapping("/{articleId}")
+    public ResponseEntity<Void> deleteArticle(@PathVariable Integer articleId, @AuthenticationPrincipal CustomUserDetails user) {
+        articleService.deleteArticle(articleId, userId(user));
+        return ResponseEntity.noContent().build();
+    }
+
     private Integer userId(CustomUserDetails user) {
         return user == null ? null : user.getId();
     }

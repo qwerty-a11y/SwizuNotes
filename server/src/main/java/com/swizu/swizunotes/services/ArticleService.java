@@ -24,7 +24,9 @@ import com.swizu.swizunotes.dto.request.EditArticleRequest;
 import com.swizu.swizunotes.dto.response.EditArticleResponse;
 import com.swizu.swizunotes.entity.Article;
 import com.swizu.swizunotes.entity.ArticleStatus;
+import com.swizu.swizunotes.entity.Media;
 import com.swizu.swizunotes.repository.ArticleRepository;
+import com.swizu.swizunotes.repository.MediaRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -32,6 +34,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Objects;
 
 @Service
@@ -39,6 +42,10 @@ public class ArticleService {
 
     @Autowired
     private ArticleRepository articleRepository;
+    @Autowired
+    private MediaRepository mediaRepository;
+    @Autowired
+    private LocalFileStorageService localFileStorageService;
 
     @Transactional(readOnly = true)
     public Page<Article> getArticles(Integer authorId, Pageable pageable) {
@@ -107,6 +114,21 @@ public class ArticleService {
         oldArticle.setModifyTime(OffsetDateTime.now());
         Article savedArticle = articleRepository.save(oldArticle);
         return toResponse(savedArticle);
+    }
+
+    @Transactional
+    public void deleteArticle(Integer articleId, Integer userId) {
+        switch (getEditPermission(articleId, userId)) {
+            case HIDDEN -> throw new ResourceNotFoundException("文章不存在");
+            case VIEW_ONLY -> throw new ForbiddenException("无权限删除文章");
+            case EDITABLE -> { }
+        }
+        List<Media> mediaList = mediaRepository.findByArticleId(articleId);
+        mediaRepository.deleteByArticleId(articleId);
+        articleRepository.deleteById(articleId);
+        for (Media media : mediaList) {
+            localFileStorageService.delete(media.getId());
+        }
     }
 
     private EditArticleResponse toResponse(Article article) {
