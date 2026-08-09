@@ -22,9 +22,11 @@ import lombok.Data;
 
 import java.time.OffsetDateTime;
 
+/** 文章列表项：不含 content 正文，列表页无需下载完整内容 */
 @Data
-public class EditArticleResponse {
+public class ArticleSummaryResponse {
     private Integer id;
+    private Integer authorId;
     private String title;
     private String cover;
     private String summary;
@@ -32,8 +34,9 @@ public class EditArticleResponse {
     private OffsetDateTime modifyTime;
     private ArticleStatus status;
 
-    public EditArticleResponse(Integer id, String title, String cover, String summary, OffsetDateTime publishTime, OffsetDateTime modifyTime, ArticleStatus status) {
+    public ArticleSummaryResponse(Integer id, Integer authorId, String title, String cover, String summary, OffsetDateTime publishTime, OffsetDateTime modifyTime, ArticleStatus status) {
         this.id = id;
+        this.authorId = authorId;
         this.title = title;
         this.cover = cover;
         this.summary = summary;

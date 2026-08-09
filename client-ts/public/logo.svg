@@ -1,0 +1,11 @@
+<svg width="300" height="300" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">
+
+<rect width="300" height="300" rx="80" fill="#F0F9FF"/>
+
+<rect x="90" y="90" width="90" height="90" rx="25" fill="#7DD3FC" transform="rotate(15 135 135)"/>
+
+<rect x="140" y="130" width="70" height="70" rx="20" fill="#C084FC" opacity="0.9"/>
+
+<circle cx="220" cy="80" r="12" fill="#FDE68A"/>
+
+</svg>

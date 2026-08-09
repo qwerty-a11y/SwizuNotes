@@ -19,6 +19,7 @@ package com.swizu.swizunotes.controller;
 
 import com.swizu.swizunotes.common.Result;
 import com.swizu.swizunotes.dto.request.EditArticleRequest;
+import com.swizu.swizunotes.dto.response.ArticleSummaryResponse;
 import com.swizu.swizunotes.dto.response.EditArticleResponse;
 import com.swizu.swizunotes.entity.Article;
 import com.swizu.swizunotes.services.ArticleService;
@@ -27,6 +28,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/articles")
@@ -46,6 +49,11 @@ public class ArticlesController {
     }
 
     */
+
+    @GetMapping("/")
+    public ResponseEntity<Result<List<ArticleSummaryResponse>>> getPublishedArticles() {
+        return ResponseEntity.ok(new Result<>("获取文章列表成功", articleService.getPublishedArticles()));
+    }
 
     @GetMapping("/{articleId}")
     public ResponseEntity<Result<Article>> getArticle(@PathVariable Integer articleId, @AuthenticationPrincipal CustomUserDetails user) {

@@ -20,6 +20,7 @@ package com.swizu.swizunotes.services;
 import com.swizu.swizunotes.common.exception.ForbiddenException;
 import com.swizu.swizunotes.common.exception.ResourceNotFoundException;
 import com.swizu.swizunotes.common.exception.UnauthorizedException;
+import com.swizu.swizunotes.dto.response.ArticleSummaryResponse;
 import com.swizu.swizunotes.dto.request.EditArticleRequest;
 import com.swizu.swizunotes.dto.response.EditArticleResponse;
 import com.swizu.swizunotes.entity.Article;
@@ -57,6 +58,13 @@ public class ArticleService {
         return articleRepository.findAllByAuthorIdAndStatus(authorId, ArticleStatus.published, pageable);
     }
 
+    @Transactional(readOnly = true)
+    public List<ArticleSummaryResponse> getPublishedArticles() {
+        return articleRepository.findAllByStatusOrderByPublishTimeDesc(ArticleStatus.published).stream()
+                .map(this::toSummary)
+                .toList();
+    }
+
     public Article getArticle(Integer articleId, Integer userId) {
         Article article = articleRepository.findById(articleId)
                 .orElseThrow(() -> new ResourceNotFoundException("文章不存在"));
@@ -89,7 +97,10 @@ public class ArticleService {
         }
         Article newArticle = new Article();
         newArticle.setAuthorId(userId);
+        newArticle.setTitle(request.getTitle());
+        newArticle.setCover(request.getCover());
         newArticle.setContent(request.getContent());
+        newArticle.setSummary(request.getSummary());
         newArticle.setStatus(request.getStatus());
         OffsetDateTime now = OffsetDateTime.now();
         newArticle.setPublishTime(now);
@@ -109,7 +120,10 @@ public class ArticleService {
             throw new ForbiddenException("无权限修改文章");
         }
 
+        oldArticle.setTitle(request.getTitle());
+        oldArticle.setCover(request.getCover());
         oldArticle.setContent(request.getContent());
+        oldArticle.setSummary(request.getSummary());
         oldArticle.setStatus(request.getStatus());
         oldArticle.setModifyTime(OffsetDateTime.now());
         Article savedArticle = articleRepository.save(oldArticle);
@@ -131,9 +145,25 @@ public class ArticleService {
         }
     }
 
+    private ArticleSummaryResponse toSummary(Article article) {
+        return new ArticleSummaryResponse(
+                article.getId(),
+                article.getAuthorId(),
+                article.getTitle(),
+                article.getCover(),
+                article.getSummary(),
+                article.getPublishTime(),
+                article.getModifyTime(),
+                article.getStatus()
+        );
+    }
+
     private EditArticleResponse toResponse(Article article) {
         return new EditArticleResponse(
                 article.getId(),
+                article.getTitle(),
+                article.getCover(),
+                article.getSummary(),
                 article.getPublishTime(),
                 article.getModifyTime(),
                 article.getStatus()

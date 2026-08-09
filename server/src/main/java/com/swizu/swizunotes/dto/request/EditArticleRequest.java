@@ -17,14 +17,26 @@
 
 package com.swizu.swizunotes.dto.request;
 
+import com.swizu.swizunotes.entity.ArticleContent;
 import com.swizu.swizunotes.entity.ArticleStatus;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 @Data
 public class EditArticleRequest {
-    @NotBlank
-    private String content;
+    @NotBlank(message = "标题不能为空")
+    @Size(max = 100, message = "标题长度不能超过100")
+    private String title;
+    @Size(max = 64, message = "封面图ID无效")
+    private String cover;
+    @NotNull(message = "正文不能为空")
+    @Valid
+    private ArticleContent content;
+    @Size(max = 50, message = "摘要长度不能超过50")
+    private String summary;
     @NotBlank
     private ArticleStatus status;
 }

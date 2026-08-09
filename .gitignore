@@ -11,6 +11,8 @@ server/.gradle/
 # Node
 client/node_modules/
 client/dist/
+client-ts/node_modules/
+client-ts/dist/
 
 # 本地配置（含敏感信息，勿提交）
 server/src/main/resources/application-local.yml

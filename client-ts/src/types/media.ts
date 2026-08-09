@@ -15,32 +15,18 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.swizu.swizunotes.entity;
+export type MediaCategory = 'image' | 'video' | 'audio' | 'file'
 
-import jakarta.persistence.*;
-import lombok.Data;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
+export interface Media {
+  id: string
+  articleId: number
+  type: MediaCategory
+  mimeType: string
+  metadata: string
+}
 
-@Data
-@Entity
-@Table(name = "media")
-public class Media {
-    @Id
-    @Column(name = "id")
-    private String id;
+export type MediaResponse = Media
 
-    @Column(name = "article_id")
-    private Integer articleId;
-
-    @Column(name = "type", columnDefinition = "media_category")
-    @Enumerated(EnumType.STRING)
-    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    private MediaCategory type;
-
-    @Column(name = "mime_type", length = 128)
-    private String mimeType;
-
-    @Column(name = "metadata", columnDefinition = "jsonb")
-    private String metadata;
+export interface LoginResponse {
+  jwt: string
 }

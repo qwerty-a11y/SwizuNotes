@@ -23,6 +23,8 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -34,6 +36,7 @@ import java.io.IOException;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
+    private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
     @Autowired
     private JwtUtils jwtUtils;
     @Autowired
@@ -42,11 +45,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
+        log.debug("JWT filter enter: {} {}, authHeader={}", request.getMethod(), request.getRequestURI(),
+                request.getHeader("Authorization") != null);
         final String authHeader = request.getHeader("Authorization");
 
         if (authHeader != null && authHeader.startsWith("Bearer ")){
             String jwt = authHeader.substring(7);
             String account = jwtUtils.extractAccount(jwt);
+            log.debug("JWT filter: account={}", account);
 
             if (account != null && SecurityContextHolder.getContext().getAuthentication() == null){
                 UserDetails user = customUserDetailsService.loadUserByUsername(account);
@@ -54,6 +60,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     UsernamePasswordAuthenticationToken authToken =
                             new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
                     SecurityContextHolder.getContext().setAuthentication(authToken);
+                    log.debug("JWT filter: authentication set for {}", account);
                 }
             }
         }

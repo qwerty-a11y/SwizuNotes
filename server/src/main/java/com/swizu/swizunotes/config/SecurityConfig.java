@@ -19,6 +19,7 @@ package com.swizu.swizunotes.config;
 
 import com.swizu.swizunotes.filter.JwtAuthenticationFilter;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -38,9 +39,18 @@ public class SecurityConfig {
     @Autowired
     private JwtAuthenticationFilter jwtAuthenticationFilter;
 
+    /** 防止 Boot 自动注册到容器（只保留安全链内注册，避免双重执行导致认证被清空） */
+    @Bean
+    public FilterRegistrationBean<JwtAuthenticationFilter> jwtAuthenticationFilterRegistration(JwtAuthenticationFilter filter) {
+        FilterRegistrationBean<JwtAuthenticationFilter> registration = new FilterRegistrationBean<>(filter);
+        registration.setEnabled(false);
+        return registration;
+    }
+
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception{
         return http
+                .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth.requestMatchers("/api/v1/session/**").permitAll())
                 .authorizeHttpRequests(auth -> auth.requestMatchers(HttpMethod.GET, "/api/v1/articles/**").permitAll())
                 .authorizeHttpRequests(auth -> auth.requestMatchers(HttpMethod.GET, "/api/v1/static-resources/**").permitAll())

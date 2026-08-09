@@ -34,8 +34,18 @@ public class Article {
 
     private Integer authorId;
 
+    @Column(length = 50)
+    private String title;
+
+    @Column(length = 64)
+    private String cover;
+
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
-    private String content;
+    private ArticleContent content;
+
+    @Column(length = 50)
+    private String summary;
 
     @Column(name = "publish_time", columnDefinition = "TIMESTAMPTZ")
     private OffsetDateTime publishTime;

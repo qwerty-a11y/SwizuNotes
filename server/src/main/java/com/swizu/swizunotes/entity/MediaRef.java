@@ -17,30 +17,22 @@
 
 package com.swizu.swizunotes.entity;
 
-import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 
 @Data
-@Entity
-@Table(name = "media")
-public class Media {
-    @Id
-    @Column(name = "id")
+public class MediaRef {
+    @NotBlank(message = "媒体ID不能为空")
+    @Size(max = 64, message = "媒体ID长度不能超过64")
     private String id;
 
-    @Column(name = "article_id")
-    private Integer articleId;
-
-    @Column(name = "type", columnDefinition = "media_category")
-    @Enumerated(EnumType.STRING)
-    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @NotNull(message = "媒体类型不能为空")
     private MediaCategory type;
 
-    @Column(name = "mime_type", length = 128)
-    private String mimeType;
-
-    @Column(name = "metadata", columnDefinition = "jsonb")
-    private String metadata;
+    @NotBlank(message = "别名不能为空")
+    @Pattern(regexp = "^[a-z][a-z0-9_-]{0,31}$", message = "别名仅限小写字母/数字/下划线/连字符，以字母开头，1-32位")
+    private String alias;
 }

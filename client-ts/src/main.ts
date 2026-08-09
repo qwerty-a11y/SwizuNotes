@@ -15,32 +15,14 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.swizu.swizunotes.entity;
+import './assets/main.css'
 
-import jakarta.persistence.*;
-import lombok.Data;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
+import { createApp } from 'vue'
+import { createPinia } from 'pinia'
+import App from './App.vue'
+import router from './router'
 
-@Data
-@Entity
-@Table(name = "media")
-public class Media {
-    @Id
-    @Column(name = "id")
-    private String id;
-
-    @Column(name = "article_id")
-    private Integer articleId;
-
-    @Column(name = "type", columnDefinition = "media_category")
-    @Enumerated(EnumType.STRING)
-    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    private MediaCategory type;
-
-    @Column(name = "mime_type", length = 128)
-    private String mimeType;
-
-    @Column(name = "metadata", columnDefinition = "jsonb")
-    private String metadata;
-}
+const app = createApp(App)
+app.use(createPinia())
+app.use(router)
+app.mount('#app')

@@ -15,32 +15,31 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.swizu.swizunotes.entity;
+import { ref } from 'vue'
+import { uploadMedia } from '@/api/media'
+import type { MediaCategory, MediaResponse } from '@/types/media'
 
-import jakarta.persistence.*;
-import lombok.Data;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
+export function useMediaUpload() {
+  const uploading = ref(false)
+  const error = ref('')
 
-@Data
-@Entity
-@Table(name = "media")
-public class Media {
-    @Id
-    @Column(name = "id")
-    private String id;
+  async function upload(
+    file: File,
+    articleId: number,
+    fileType: MediaCategory = 'image',
+    metadata = '{}',
+  ): Promise<MediaResponse> {
+    uploading.value = true
+    error.value = ''
+    try {
+      return (await uploadMedia(file, articleId, fileType, metadata)).data
+    } catch (e) {
+      error.value = (e as Error).message
+      throw e
+    } finally {
+      uploading.value = false
+    }
+  }
 
-    @Column(name = "article_id")
-    private Integer articleId;
-
-    @Column(name = "type", columnDefinition = "media_category")
-    @Enumerated(EnumType.STRING)
-    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    private MediaCategory type;
-
-    @Column(name = "mime_type", length = 128)
-    private String mimeType;
-
-    @Column(name = "metadata", columnDefinition = "jsonb")
-    private String metadata;
+  return { uploading, error, upload }
 }

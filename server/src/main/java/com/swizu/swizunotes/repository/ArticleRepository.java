@@ -38,5 +38,7 @@ public interface ArticleRepository extends JpaRepository<Article, Integer> {
 
     Page<Article> findAllByAuthorIdAndStatus(Integer authorId, ArticleStatus status, Pageable pageable);
 
+    List<Article> findAllByStatusOrderByPublishTimeDesc(ArticleStatus status);
+
     Article save(Article article);
 }
