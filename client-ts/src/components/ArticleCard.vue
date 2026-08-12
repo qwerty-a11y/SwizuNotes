@@ -21,56 +21,103 @@ import type { ArticleSummary } from '@/types/article'
 defineProps<{
   article: ArticleSummary
 }>()
+
+function formatDate(value: string): string {
+  const d = new Date(value)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
 </script>
 
 <template>
   <RouterLink class="card" :to="`/article/${article.id}`">
-    <img v-if="article.cover" class="cover" :src="mediaUrl(article.cover)" alt="封面图" />
-    <h2 class="title">{{ article.title || `文章 #${article.id}` }}</h2>
-    <p v-if="article.summary" class="summary">{{ article.summary }}</p>
-    <p class="meta">
-      {{ article.status }}
-      <template v-if="article.publishTime"> · {{ new Date(article.publishTime).toLocaleString() }}</template>
-    </p>
+    <div class="cover">
+      <img v-if="article.cover" class="cover-img" :src="mediaUrl(article.cover)" alt="封面图" />
+      <div v-else class="cover-placeholder">SwizuNotes</div>
+    </div>
+    <div class="body">
+      <h2 class="title">{{ article.title || `文章 #${article.id}` }}</h2>
+      <p v-if="article.summary" class="summary">{{ article.summary }}</p>
+      <p v-else class="summary muted">暂无摘要</p>
+      <time class="time" :datetime="article.publishTime">
+        {{ formatDate(article.publishTime) }}
+      </time>
+    </div>
   </RouterLink>
 </template>
 
 <style scoped>
 .card {
-  display: block;
-  padding: 1rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--bg-card);
   color: inherit;
   text-decoration: none;
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .card:hover {
-  border-color: #999;
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lift);
 }
 
 .cover {
+  aspect-ratio: 3 / 1;
+  background: var(--bg-muted);
+  overflow: hidden;
+}
+
+.cover-img {
   width: 100%;
-  height: 10rem;
+  height: 100%;
   object-fit: cover;
-  border-radius: 4px;
-  margin-bottom: 0.5rem;
+  display: block;
+}
+
+.cover-placeholder {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-faint);
+  font-size: 0.9rem;
+  letter-spacing: 0.05em;
+}
+
+.body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 1.1rem 1.25rem;
 }
 
 .title {
-  margin: 0 0 0.25rem;
-  font-size: 1.1rem;
+  margin: 0 0 0.4rem;
+  font-size: 1.2rem;
+  font-weight: 600;
+  line-height: 1.4;
 }
 
 .summary {
-  margin: 0 0 0.25rem;
-  color: #555;
+  margin: 0 0 0.75rem;
+  color: var(--text-muted);
   font-size: 0.9rem;
+  line-height: 1.5;
 }
 
-.meta {
-  margin: 0;
-  color: #888;
-  font-size: 0.85rem;
+.muted {
+  color: var(--text-faint);
+}
+
+.time {
+  margin-top: auto;
+  color: var(--text-faint);
+  font-size: 0.8rem;
 }
 </style>

@@ -23,10 +23,12 @@ export interface Media {
   type: MediaCategory
   mimeType: string
   metadata: string
+  size?: number | null
 }
 
 export type MediaResponse = Media
 
 export interface LoginResponse {
-  jwt: string
+  accessToken: string
+  refreshToken: string
 }

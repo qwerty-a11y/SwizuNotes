@@ -17,10 +17,10 @@
 
 package com.swizu.swizunotes.util;
 
+import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
-import io.jsonwebtoken.Jwts;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
@@ -29,17 +29,36 @@ import java.util.Date;
 @Component
 public class JwtUtils {
 
+    private static final String CLAIM_TYPE = "type";
+    private static final String TYPE_ACCESS = "access";
+    private static final String TYPE_REFRESH = "refresh";
+
     @Value("${jwt.secret}")
     private String secret;
-    @Value("${jwt.expiration}")
-    private long expiration;
+    @Value("${jwt.access-expiration}")
+    private long accessExpiration;
+    @Value("${jwt.refresh-expiration}")
+    private long refreshExpiration;
 
-    public String generateToken(String username) {
+    public String generateAccessToken(String username) {
         return Jwts.builder()
                 .claims()
                     .subject(username)
+                    .add(CLAIM_TYPE, TYPE_ACCESS)
                     .issuedAt(new Date())
-                    .expiration(new Date(new Date().getTime() + expiration))
+                    .expiration(new Date(new Date().getTime() + accessExpiration))
+                .and()
+                .signWith(getSignKey())
+                .compact();
+    }
+
+    public String generateRefreshToken(String username) {
+        return Jwts.builder()
+                .claims()
+                    .subject(username)
+                    .add(CLAIM_TYPE, TYPE_REFRESH)
+                    .issuedAt(new Date())
+                    .expiration(new Date(new Date().getTime() + refreshExpiration))
                 .and()
                 .signWith(getSignKey())
                 .compact();
@@ -61,6 +80,28 @@ public class JwtUtils {
                     .build()
                     .parseSignedClaims(token);
             return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    public boolean isAccessToken(String token) {
+        return hasType(token, TYPE_ACCESS);
+    }
+
+    public boolean isRefreshToken(String token) {
+        return hasType(token, TYPE_REFRESH);
+    }
+
+    private boolean hasType(String token, String expectedType) {
+        try {
+            String type = Jwts.parser()
+                    .verifyWith(getSignKey())
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload()
+                    .get(CLAIM_TYPE, String.class);
+            return expectedType.equals(type);
         } catch (Exception e) {
             return false;
         }

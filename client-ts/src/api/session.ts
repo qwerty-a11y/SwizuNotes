@@ -22,3 +22,7 @@ import type { LoginResponse } from '@/types/media'
 export function login(account: string, password: string): Promise<Result<LoginResponse>> {
   return http.post('/session/', { account, password })
 }
+
+export function refreshSession(refreshToken: string): Promise<Result<LoginResponse>> {
+  return http.post('/session/refresh', { refreshToken })
+}

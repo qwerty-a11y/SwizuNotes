@@ -65,4 +65,18 @@ public class LocalFileStorageService {
             throw new InternalException("文件加载失败");
         }
     }
+
+    /** 文件大小（字节），文件不存在时返回 -1 */
+    public long sizeOf(String id) {
+        String dir = "uploads/" + id.substring(0, 2) + "/";
+        Path path = Paths.get(dir, id).toAbsolutePath();
+        try {
+            if (Files.exists(path)) {
+                return Files.size(path);
+            }
+        } catch (IOException e) {
+            throw new InternalException("文件大小读取失败");
+        }
+        return -1;
+    }
 }

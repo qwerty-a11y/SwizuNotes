@@ -16,6 +16,7 @@
  */
 
 import './assets/main.css'
+import 'viewerjs/dist/viewer.css'
 
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'

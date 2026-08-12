@@ -32,6 +32,6 @@
 }
 
 .hint {
-  color: #888;
+  color: var(--text-faint);
 }
 </style>

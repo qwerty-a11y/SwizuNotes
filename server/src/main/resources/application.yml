@@ -6,7 +6,12 @@ spring:
     url: jdbc:postgresql://localhost:5432/swizunotes
     username: postgres
     password: ${DB_PASSWORD}
+  servlet:
+    multipart:
+      max-file-size: 1GB
+      max-request-size: 1GB
 
 jwt:
   secret: ${JWT_SECRET}
-  expiration: 86400000
+  access-expiration: 1800000
+  refresh-expiration: 2592000000

@@ -15,10 +15,15 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import axios, { type AxiosRequestConfig } from 'axios'
+import axios, { type AxiosRequestConfig, type InternalAxiosRequestConfig } from 'axios'
 import router from '@/router'
+import type { Result } from '@/types/api'
+import type { LoginResponse } from '@/types/media'
 
 export const TOKEN_KEY = 'swizu_token'
+export const REFRESH_TOKEN_KEY = 'swizu_refresh_token'
+
+export const API_BASE: string = import.meta.env.VITE_API_BASE_URL || '/api/v1'
 
 export interface HttpInstance {
   get<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<T>
@@ -28,7 +33,7 @@ export interface HttpInstance {
 }
 
 const instance = axios.create({
-  baseURL: '/api/v1',
+  baseURL: API_BASE,
   timeout: 15000,
 })
 
@@ -40,20 +45,62 @@ instance.interceptors.request.use((config) => {
   return config
 })
 
+let refreshing: Promise<string> | null = null
+
+function clearAuth(): void {
+  localStorage.removeItem(TOKEN_KEY)
+  localStorage.removeItem(REFRESH_TOKEN_KEY)
+}
+
+async function refreshAccessToken(): Promise<string> {
+  const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY)
+  if (!refreshToken) throw new Error('无刷新令牌')
+  const res = await axios.post<Result<LoginResponse>>(`${API_BASE}/session/refresh`, { refreshToken }, { timeout: 15000 })
+  const data = res.data.data
+  localStorage.setItem(TOKEN_KEY, data.accessToken)
+  if (data.refreshToken) {
+    localStorage.setItem(REFRESH_TOKEN_KEY, data.refreshToken)
+  }
+  return data.accessToken
+}
+
+interface RetryConfig extends InternalAxiosRequestConfig {
+  _retried?: boolean
+}
+
+function redirectToLogin(): void {
+  if (router.currentRoute.value.path !== '/login') {
+    router.push({ path: '/login', query: { redirect: router.currentRoute.value.fullPath } })
+  }
+}
+
 instance.interceptors.response.use(
   (response) => response.data,
-  (error) => {
-    if (error.response) {
-      if (error.response.status === 401) {
-        localStorage.removeItem(TOKEN_KEY)
-        if (router.currentRoute.value.path !== '/login') {
-          router.push({ path: '/login', query: { redirect: router.currentRoute.value.fullPath } })
+  async (error) => {
+    const response = error.response
+    const config: RetryConfig | undefined = error.config
+    if (response?.status === 401 && config) {
+      const isSessionApi = typeof config.url === 'string' && config.url.includes('/session/')
+      const canRetry = !isSessionApi && !config._retried
+      if (canRetry) {
+        config._retried = true
+        try {
+          const token = await (refreshing ??= refreshAccessToken().finally(() => {
+            refreshing = null
+          }))
+          config.headers.Authorization = `Bearer ${token}`
+          return instance(config)
+        } catch {
+          clearAuth()
+          redirectToLogin()
         }
+      } else {
+        clearAuth()
+        redirectToLogin()
       }
-      const message: string | undefined = error.response.data?.message
-      return Promise.reject(new Error(message || `请求失败（${error.response.status}）`))
     }
-    return Promise.reject(new Error('网络异常，请稍后重试'))
+    const message: string | undefined = response?.data?.message
+    return Promise.reject(new Error(message || `请求失败（${response?.status ?? '网络异常'}）`))
   },
 )
 

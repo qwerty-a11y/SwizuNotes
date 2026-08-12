@@ -17,7 +17,7 @@
 
 import { defineStore } from 'pinia'
 import { login as loginApi } from '@/api/session'
-import { TOKEN_KEY } from '@/api/http'
+import { REFRESH_TOKEN_KEY, TOKEN_KEY } from '@/api/http'
 
 export const ACCOUNT_KEY = 'swizu_account'
 
@@ -32,15 +32,17 @@ export const useUserStore = defineStore('user', {
   actions: {
     async login(account: string, password: string): Promise<void> {
       const result = await loginApi(account, password)
-      this.token = result.data.jwt
+      this.token = result.data.accessToken
       this.account = account
-      localStorage.setItem(TOKEN_KEY, this.token)
+      localStorage.setItem(TOKEN_KEY, result.data.accessToken)
+      localStorage.setItem(REFRESH_TOKEN_KEY, result.data.refreshToken)
       localStorage.setItem(ACCOUNT_KEY, account)
     },
     logout(): void {
       this.token = ''
       this.account = ''
       localStorage.removeItem(TOKEN_KEY)
+      localStorage.removeItem(REFRESH_TOKEN_KEY)
       localStorage.removeItem(ACCOUNT_KEY)
     },
   },

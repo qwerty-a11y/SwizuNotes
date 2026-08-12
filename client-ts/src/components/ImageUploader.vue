@@ -62,9 +62,17 @@ function onFileChange(event: Event): void {
 .pick {
   display: inline-block;
   padding: 0.5rem 1rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  font-size: 0.85rem;
+  color: var(--primary);
+  border: 1px solid var(--primary-soft-border);
+  border-radius: 8px;
+  background: var(--bg-card);
   cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.pick:hover {
+  background: var(--primary-soft);
 }
 
 .pick input {
@@ -78,6 +86,7 @@ function onFileChange(event: Event): void {
 }
 
 .error {
-  color: #c0392b;
+  color: var(--danger);
+  font-size: 0.85rem;
 }
 </style>

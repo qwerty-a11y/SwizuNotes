@@ -51,11 +51,16 @@ function logout(): void {
 
 <style scoped>
 .app-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0.75rem 1.5rem;
-  border-bottom: 1px solid #ddd;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-header);
+  backdrop-filter: blur(8px) saturate(180%);
 }
 
 .brand {
@@ -89,7 +94,7 @@ function logout(): void {
 }
 
 .account {
-  color: #666;
+  color: var(--text-muted);
   font-size: 0.9rem;
 }
 

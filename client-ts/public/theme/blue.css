@@ -1,0 +1,42 @@
+/* SwizuNotes 主题调色盘 —— 蓝色（默认主题） */
+
+:root {
+  /* ===== 主色（蓝，偏淡） ===== */
+  --primary: #3b82f6;
+  --primary-hover: #2563eb;
+  --primary-active: #1d4ed8;
+  --primary-mid: #60a5fa;
+  --primary-soft: #eff6ff;
+  --primary-soft-border: #93c5fd;
+  --on-primary: #ffffff;
+
+  /* ===== 背景 ===== */
+  --bg-page: #f0f5fa;
+  --bg-page-rgb: 240, 245, 250;
+  --bg-card: #ffffff;
+  --bg-input: #f8fafc;
+  --bg-muted: #eef2f7;
+  --bg-header: rgba(255, 255, 255, 0.55);
+  --bg-overlay: rgba(20, 28, 56, 0.35);
+
+  /* ===== 文本 ===== */
+  --text-strong: #0f172a;
+  --text: #334155;
+  --text-muted: #64748b;
+  --text-faint: #94a3b8;
+
+  /* ===== 边框 ===== */
+  --border: #e5e7eb;
+  --border-strong: #cbd5e1;
+
+  /* ===== 阴影 ===== */
+  --shadow-card: 0 1px 3px rgba(15, 23, 42, 0.06);
+  --shadow-lift: 0 10px 20px rgba(15, 23, 42, 0.12);
+
+  /* ===== 语义色 ===== */
+  --danger: #dc2626;
+  --danger-soft: #fef2f2;
+  --code-bg: #f1f5f9;
+  --code-block-bg: #0f172a;
+  --code-block-text: #e2e8f0;
+}

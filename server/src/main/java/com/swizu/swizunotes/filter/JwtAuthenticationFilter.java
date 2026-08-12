@@ -19,6 +19,7 @@ package com.swizu.swizunotes.filter;
 
 import com.swizu.swizunotes.services.CustomUserDetailsService;
 import com.swizu.swizunotes.util.JwtUtils;
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -47,16 +48,27 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
         log.debug("JWT filter enter: {} {}, authHeader={}", request.getMethod(), request.getRequestURI(),
                 request.getHeader("Authorization") != null);
+        String jwt = null;
         final String authHeader = request.getHeader("Authorization");
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            jwt = authHeader.substring(7);
+        } else if (isMediaRead(request)) {
+            // <img> 标签无法携带 Authorization 头，草稿文章的媒体读取允许用 query 参数携带 JWT
+            jwt = request.getParameter("token");
+        }
 
-        if (authHeader != null && authHeader.startsWith("Bearer ")){
-            String jwt = authHeader.substring(7);
-            String account = jwtUtils.extractAccount(jwt);
+        if (jwt != null){
+            String account = null;
+            try {
+                account = jwtUtils.extractAccount(jwt);
+            } catch (JwtException e) {
+                log.debug("JWT filter: invalid or expired token: {}", e.getMessage());
+            }
             log.debug("JWT filter: account={}", account);
 
             if (account != null && SecurityContextHolder.getContext().getAuthentication() == null){
                 UserDetails user = customUserDetailsService.loadUserByUsername(account);
-                if (jwtUtils.validateToken(jwt)){
+                if (jwtUtils.validateToken(jwt) && jwtUtils.isAccessToken(jwt)){
                     UsernamePasswordAuthenticationToken authToken =
                             new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
                     SecurityContextHolder.getContext().setAuthentication(authToken);
@@ -66,5 +78,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private boolean isMediaRead(HttpServletRequest request) {
+        return "GET".equalsIgnoreCase(request.getMethod())
+                && request.getRequestURI().startsWith("/api/v1/media/");
     }
 }

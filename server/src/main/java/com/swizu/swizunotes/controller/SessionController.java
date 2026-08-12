@@ -18,10 +18,13 @@
 package com.swizu.swizunotes.controller;
 
 import com.swizu.swizunotes.common.Result;
+import com.swizu.swizunotes.common.exception.UnauthorizedException;
 import com.swizu.swizunotes.dto.request.LoginRequest;
+import com.swizu.swizunotes.dto.request.RefreshTokenRequest;
 import com.swizu.swizunotes.dto.response.LoginResponse;
 import com.swizu.swizunotes.services.CustomUserDetailsService;
 import com.swizu.swizunotes.util.JwtUtils;
+import io.jsonwebtoken.JwtException;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -52,7 +55,29 @@ public class SessionController {
                 )
         );
         SecurityContextHolder.getContext().setAuthentication(authentication);
-        String jwt = jwtUtils.generateToken(request.getAccount());
-        return new ResponseEntity<>(new Result<>("登录成功", new LoginResponse(jwt)), HttpStatus.OK);
+        LoginResponse response = new LoginResponse(
+                jwtUtils.generateAccessToken(request.getAccount()),
+                jwtUtils.generateRefreshToken(request.getAccount())
+        );
+        return new ResponseEntity<>(new Result<>("登录成功", response), HttpStatus.OK);
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<Result<LoginResponse>> refresh(@Valid @RequestBody RefreshTokenRequest request) {
+        if (!jwtUtils.isRefreshToken(request.getRefreshToken())) {
+            throw new UnauthorizedException("刷新令牌无效");
+        }
+        String account;
+        try {
+            account = jwtUtils.extractAccount(request.getRefreshToken());
+        } catch (JwtException e) {
+            throw new UnauthorizedException("刷新令牌无效或已过期");
+        }
+        customUserDetailsService.loadUserByUsername(account);
+        LoginResponse response = new LoginResponse(
+                jwtUtils.generateAccessToken(account),
+                jwtUtils.generateRefreshToken(account)
+        );
+        return new ResponseEntity<>(new Result<>("刷新成功", response), HttpStatus.OK);
     }
 }

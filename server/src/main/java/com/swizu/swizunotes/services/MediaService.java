@@ -48,13 +48,39 @@ public class MediaService {
     @Autowired private ObjectMapper objectMapper;
 
     public MediaContent getMedia(String mediaId, Integer userId) {
+        Media media = getVisibleMedia(mediaId, userId);
+        return new MediaContent(media, localFileStorageService.load(mediaId));
+    }
+
+    /** 查询媒体元数据（不含文件流），权限与读取一致 */
+    public MediaResponse getMediaInfo(String mediaId, Integer userId) {
+        Media media = getVisibleMedia(mediaId, userId);
+        return new MediaResponse(media.getId(), media.getArticleId(), media.getType(), media.getMimeType(),
+                media.getMetadata(), localFileStorageService.sizeOf(mediaId));
+    }
+
+    /** 下载文件名：优先 metadata.name，否则用媒体 id */
+    public String getDownloadFilename(String mediaId, Integer userId) {
+        Media media = getVisibleMedia(mediaId, userId);
+        try {
+            var node = objectMapper.readTree(media.getMetadata());
+            var name = node.get("name");
+            if (name != null && !name.isNull() && !name.asText().isBlank()) {
+                return name.asText();
+            }
+        } catch (Exception ignored) {
+        }
+        return media.getId();
+    }
+
+    private Media getVisibleMedia(String mediaId, Integer userId) {
         Media media = mediaRepository.findById(mediaId).orElseThrow(
                 () -> new ResourceNotFoundException("资源不存在")
         );
         if (articleService.getEditPermission(media.getArticleId(), userId) == ArticleEditPermission.HIDDEN) {
             throw new ResourceNotFoundException("资源不存在");
         }
-        return new MediaContent(media, localFileStorageService.load(mediaId));
+        return media;
     }
 
     @Transactional
@@ -102,7 +128,30 @@ public class MediaService {
             localFileStorageService.delete(id);
             throw e;
         }
-        return new MediaResponse(media.getId(), media.getArticleId(), media.getType(), media.getMimeType(), media.getMetadata());
+        return new MediaResponse(media.getId(), media.getArticleId(), media.getType(), media.getMimeType(),
+                media.getMetadata(), file.getSize());
+    }
+
+    @Transactional
+    public MediaResponse updateMetadata(String mediaId, String metadata, Integer userId) {
+        Media media = mediaRepository.findById(mediaId).orElseThrow(
+                () -> new ResourceNotFoundException("资源不存在")
+        );
+        switch (articleService.getEditPermission(media.getArticleId(), userId)) {
+            case HIDDEN -> throw new ResourceNotFoundException("资源不存在");
+            case VIEW_ONLY -> throw new ForbiddenException("无编辑权限");
+            case EDITABLE -> { }
+        }
+        media.setMetadata(validateAndCompact(metadata, switch (media.getType()) {
+            case image -> ImageMetadata.class;
+            case video -> VideoMetadata.class;
+            case audio -> AudioMetadata.class;
+            case file -> FileMetadata.class;
+            default -> throw new InternalException("未完善的文件类型：" + media.getType());
+        }));
+        mediaRepository.save(media);
+        return new MediaResponse(media.getId(), media.getArticleId(), media.getType(), media.getMimeType(),
+                media.getMetadata(), localFileStorageService.sizeOf(mediaId));
     }
 
     private String validateAndCompact(String json, Class<? extends AbstractMediaMetadata> metadataClass) {

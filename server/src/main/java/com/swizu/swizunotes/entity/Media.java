@@ -42,5 +42,6 @@ public class Media {
     private String mimeType;
 
     @Column(name = "metadata", columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
     private String metadata;
 }

@@ -14,8 +14,8 @@ body {
     'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
   font-size: 16px;
   line-height: 1.6;
-  color: #2c3e50;
-  background: #fff;
+  color: var(--text);
+  background: var(--bg-page);
 }
 
 #app {

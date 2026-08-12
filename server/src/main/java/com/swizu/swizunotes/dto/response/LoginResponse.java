@@ -21,9 +21,11 @@ import lombok.Data;
 
 @Data
 public class LoginResponse {
-    private String jwt;
+    private String accessToken;
+    private String refreshToken;
 
-    public LoginResponse(String jwt) {
-        this.jwt = jwt;
+    public LoginResponse(String accessToken, String refreshToken) {
+        this.accessToken = accessToken;
+        this.refreshToken = refreshToken;
     }
 }

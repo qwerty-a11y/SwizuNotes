@@ -27,12 +27,14 @@ public class MediaResponse {
     private MediaCategory type;
     private String mimeType;
     private String metadata;
+    private Long size;
 
-    public MediaResponse(String id, Integer articleId, MediaCategory type, String mimeType, String metadata) {
+    public MediaResponse(String id, Integer articleId, MediaCategory type, String mimeType, String metadata, Long size) {
         this.id = id;
         this.articleId = articleId;
         this.type = type;
         this.mimeType = mimeType;
         this.metadata = metadata;
+        this.size = size;
     }
 }
