@@ -124,6 +124,14 @@ npm run dev   # http://localhost:5173（/api 代理到 http://localhost:8080）
 
 ---
 
+## 图片许可
+
+项目中出现的全部主题 banner 图片以
+[知识共享 署名—非商业性使用—相同方式共享 4.0 国际（CC BY-NC-SA 4.0）](https://creativecommons.org/licenses/by-nc-sa/4.0/) 协议共享：
+协议全文见 [LICENSE-IMAGES.md](./LICENSE-IMAGES.md)。
+
+---
+
 ## 开发路线图
 
 - [x] 项目初始化与数据库设计
