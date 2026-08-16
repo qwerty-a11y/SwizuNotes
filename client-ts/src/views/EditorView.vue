@@ -14,6 +14,34 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  -->
+<script lang="ts">
+/**
+ * md-editor-v3 默认通过动态 <script> 从 unpkg CDN 加载 screenfull（全屏）与
+ * highlight.js（代码高亮）——被本站 CSP（script-src 'self'）拦截后全屏/高亮失效。
+ * 这里把 CDN 地址全部改指向本地 public/vendor/ 下的同源资源（构建时随前端一起发布）。
+ */
+import { config } from 'md-editor-v3'
+
+config({
+  editorExtensions: {
+    screenfull: { js: '/vendor/screenfull.js' },
+    highlight: {
+      js: '/vendor/highlight.min.js',
+      css: {
+        github: {
+          light: '/vendor/github.min.css',
+          dark: '/vendor/github-dark.min.css',
+        },
+        atom: {
+          light: '/vendor/atom-one-light.min.css',
+          dark: '/vendor/atom-one-dark.min.css',
+        },
+      },
+    },
+  },
+})
+</script>
+
 <script setup lang="ts">
 import { computed, h, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
@@ -679,6 +707,8 @@ function handleTogglePublish(): void {
           :toolbars="toolbarList"
           :theme="editorTheme"
           :code-theme="editorTheme === 'dark' ? 'atom' : 'github'"
+          :no-katex="true"
+          :no-mermaid="true"
           style="height: 520px"
           language="zh-CN"
         />

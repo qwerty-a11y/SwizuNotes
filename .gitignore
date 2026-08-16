@@ -14,12 +14,16 @@ client/dist/
 client-ts/node_modules/
 client-ts/dist/
 client-ts/.npm-cache/
+.npm-cache/
 
 # 本地配置（含敏感信息，勿提交）
 server/src/main/resources/application-local.yml
 
 # 本地工作文档（设计决策活文档，不纳入仓库）
 AGENTS.md
+
+# 部署副本（容器化部署用，不提交）
+deploy/
 
 # 运行时数据（媒体/头像/主题文件，勿提交）
 server/uploads/

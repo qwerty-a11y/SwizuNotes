@@ -120,6 +120,18 @@ onBeforeUnmount(() => {
       </div>
       <p v-else class="state hint">还没有已发布的文章。</p>
     </section>
+
+    <div style="text-align: center; padding: 10px 0; font-size: 12px;" class="dynamic-footer">
+      <div style="display: flex; justify-content: center; align-items: center; gap: 16px; flex-wrap: wrap;">
+        <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer" style="color: inherit; text-decoration: none;">
+          ICP备案号（占位：待填写）
+        </a>
+        <a href="https://beian.mps.gov.cn/#/query/webSearch?code=00000000000000" target="_blank" rel="noopener noreferrer" style="color: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">
+          <img src="https://beian.mps.gov.cn/img/logo01.dd7ff50e.png" alt="公安备案图标" style="width: 16px; height: 16px;">
+          <span>公安备案号（占位：待填写）</span>
+        </a>
+      </div>
+    </div>
   </div>
 </template>
 

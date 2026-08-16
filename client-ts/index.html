@@ -5,15 +5,14 @@
     <link rel="icon" href="/logo.svg" type="image/svg+xml">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- CSP：script-src 'self' 拦截注入的内联脚本（防闪烁脚本已外置到 /theme-init.js）；
-         style-src 需 unsafe-inline（Vue scoped 样式运行时注入）与 blob:（主题预览 blob CSS）；
-         dev 直连后端（VITE_API_BASE_URL=http://localhost:8080）需放行该源 -->
+         style-src 需 unsafe-inline（Vue scoped 样式运行时注入）与 blob:（主题预览 blob CSS） -->
     <meta http-equiv="Content-Security-Policy" content="
       default-src 'self';
       script-src 'self';
-      style-src 'self' 'unsafe-inline' blob: http://localhost:8080;
-      img-src 'self' data: blob: http://localhost:8080;
-      media-src 'self' blob: http://localhost:8080;
-      connect-src 'self' http://localhost:8080;
+      style-src 'self' 'unsafe-inline' blob:;
+      img-src 'self' data: blob: https://beian.mps.gov.cn;
+      media-src 'self' blob:;
+      connect-src 'self';
       font-src 'self' data:;
       object-src 'none';
       frame-src 'none';
@@ -24,6 +23,17 @@
   </head>
   <body>
     <div id="app"></div>
+    <div style="text-align: center; padding: 10px 0; background: transparent; position: fixed; bottom: 10px; width: 100vw; z-index: 10000; font-size: 12px;" class="static-footer">
+      <div style="display: flex; justify-content: center; align-items: center; gap: 16px; flex-wrap: wrap;">
+        <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer" style="color: inherit; text-decoration: none;">
+          ICP备案号（占位：待填写）
+        </a>
+        <a href="https://beian.mps.gov.cn/#/query/webSearch?code=00000000000000" target="_blank" rel="noopener noreferrer" style="color: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">
+          <img src="https://beian.mps.gov.cn/img/logo01.dd7ff50e.png" alt="公安备案图标" style="width: 16px; height: 16px;">
+          <span>公安备案号（占位：待填写）</span>
+        </a>
+      </div>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

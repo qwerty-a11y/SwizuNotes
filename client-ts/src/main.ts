@@ -35,6 +35,11 @@ app.use(pinia)
 app.use(router)
 app.mount('#app')
 
+// Vue 应用加载成功后隐藏静态 index.html 中的备案信息，避免重复
+void router.isReady().then(() => {
+  document.querySelector('.static-footer')?.remove()
+})
+
 // 串行启动链：持久主题（含失效探测）→ 日期自动跟随 → 预览恢复（预览优先于日期主题）。
 // 均在挂载后异步执行，不阻塞首屏。
 void initTheme().finally(() => {
