@@ -4,7 +4,22 @@
     <meta charset="UTF-8">
     <link rel="icon" href="/logo.svg" type="image/svg+xml">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="/theme/blue.css" id="theme-link">
+    <!-- CSP：script-src 'self' 拦截注入的内联脚本（防闪烁脚本已外置到 /theme-init.js）；
+         style-src 需 unsafe-inline（Vue scoped 样式运行时注入）与 blob:（主题预览 blob CSS）；
+         dev 直连后端（VITE_API_BASE_URL=http://localhost:8080）需放行该源 -->
+    <meta http-equiv="Content-Security-Policy" content="
+      default-src 'self';
+      script-src 'self';
+      style-src 'self' 'unsafe-inline' blob: http://localhost:8080;
+      img-src 'self' data: blob: http://localhost:8080;
+      media-src 'self' blob: http://localhost:8080;
+      connect-src 'self' http://localhost:8080;
+      font-src 'self' data:;
+      object-src 'none';
+      frame-src 'none';
+    ">
+    <link rel="stylesheet" href="/api/v1/static-resources/default.css" id="theme-link">
+    <script src="/theme-init.js"></script>
     <title>SwizuNotes</title>
   </head>
   <body>

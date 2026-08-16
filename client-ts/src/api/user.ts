@@ -15,8 +15,21 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import http from './http'
+import http, { API_BASE } from './http'
 import type { Result } from '@/types/api'
+import type { CurrentUser } from '@/types/user'
+
+export function getMe(): Promise<Result<CurrentUser>> {
+  return http.get('/users/me')
+}
+
+export function getUserProfile(userId: number): Promise<Result<CurrentUser>> {
+  return http.get(`/users/${userId}/profile`)
+}
+
+export function updateUsername(username: string): Promise<Result<CurrentUser>> {
+  return http.put('/users/me', { username })
+}
 
 export function uploadAvatar(file: File): Promise<Result<string>> {
   const formData = new FormData()
@@ -25,5 +38,16 @@ export function uploadAvatar(file: File): Promise<Result<string>> {
 }
 
 export function avatarUrl(userId: number): string {
-  return `/api/v1/users/${userId}/avatar`
+  return `${API_BASE}/users/${userId}/avatar`
+}
+
+/** 头像加载失败时的统一兜底图（本地静态 SVG 占位图，与后端无头像默认图同款） */
+export const DEFAULT_AVATAR_URL = '/images/default-avatar.svg'
+
+/** <img> 头像加载失败 → 切换为默认 SVG 占位图（各处头像 fallback 统一入口） */
+export function avatarErrorFallback(event: Event): void {
+  const img = event.target as HTMLImageElement
+  if (img && img.src !== DEFAULT_AVATAR_URL) {
+    img.src = DEFAULT_AVATAR_URL
+  }
 }

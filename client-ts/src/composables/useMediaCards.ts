@@ -17,6 +17,7 @@
 
 import Artplayer from 'artplayer'
 import { getMediaInfo, mediaUrl } from '@/api/media'
+import { fileIconSvg } from '@/utils/fileIcons'
 import type { MediaCategory } from '@/types/media'
 
 interface MediaMeta {
@@ -46,6 +47,8 @@ interface AudioPlayer {
   volumeFill: HTMLElement
   dragging: boolean
   volumeDragging: boolean
+  /** 拖拽中的 window 指针监听（dispose 时中止，防残留） */
+  abort?: AbortController
 }
 
 export interface MediaCards {
@@ -58,8 +61,31 @@ export interface MediaCards {
 }
 
 export function useMediaCards(): MediaCards {
-  const players = new Map<string, AudioPlayer>()
-  const videoPlayers = new Map<string, Artplayer>()
+  // 播放器以「卡片/容器」为 key（同一媒体在正文中被引用多次时各自独立实例，
+  // 避免第二张卡控件失效；fill 重复调用时按 key 复用不重复创建）
+  const players = new Map<HTMLElement, AudioPlayer>()
+  const videoPlayers = new Map<HTMLElement, Artplayer>()
+  /** 卡片宽度 ≤ 480px 时加 is-narrow class（窄卡片紧凑布局），observer 统一管理 */
+  const NARROW_WIDTH = 480
+  const narrowObservers = new Set<ResizeObserver>()
+  /** 主输入设备无 hover（触屏）：音量按钮点击只展开/收起音量条，不做静音切换 */
+  const touchQuery = window.matchMedia('(hover: none)')
+
+  function isTouchOnly(): boolean {
+    return touchQuery.matches
+  }
+
+  function observeNarrow(card: HTMLElement): void {
+    // 同一卡片重复 fill（编辑器防抖重填预览）不叠加新 observer
+    if (card.dataset.narrowObserved) return
+    card.dataset.narrowObserved = '1'
+    const ro = new ResizeObserver(() => {
+      const width = card.getBoundingClientRect().width
+      card.classList.toggle('is-narrow', width > 0 && width <= NARROW_WIDTH)
+    })
+    ro.observe(card)
+    narrowObservers.add(ro)
+  }
 
   async function fill(container: HTMLElement): Promise<void> {
     const cards = Array.from(
@@ -85,11 +111,14 @@ export function useMediaCards(): MediaCards {
     const url = card.dataset.url
     if (!mediaId || !url) return
 
+    // 按卡片自身宽度标记窄卡片（宽度变化时自动更新，不依赖设备类型）
+    observeNarrow(card)
+
     if (card.classList.contains('media-audio')) {
-      bindAudioPlayer(card, mediaId, url)
+      bindAudioPlayer(card, url)
     }
     if (card.classList.contains('media-video')) {
-      bindVideoPlayer(card, mediaId, url)
+      bindVideoPlayer(card, url)
     }
 
     if (card.dataset.mediaReady) return
@@ -109,6 +138,13 @@ export function useMediaCards(): MediaCards {
       nameEl.textContent = name
       nameEl.title = name
     }
+    // 文件卡片：按真实文件名（含扩展名）替换格式图标
+    if (info.type === 'file') {
+      const iconEl = card.querySelector<HTMLElement>('.media-card-file-icon')
+      if (iconEl) {
+        iconEl.innerHTML = fileIconSvg(name)
+      }
+    }
     const sizeEl = card.querySelector<HTMLElement>('.media-card-size')
     if (sizeEl && typeof info.size === 'number' && info.size >= 0) {
       sizeEl.textContent = formatSize(info.size)
@@ -127,7 +163,7 @@ export function useMediaCards(): MediaCards {
     card.dataset.mediaReady = '1'
   }
 
-  function bindAudioPlayer(card: HTMLElement, mediaId: string, url: string): void {
+  function bindAudioPlayer(card: HTMLElement, url: string): void {
     const toggleBtn = card.querySelector<HTMLButtonElement>('[data-audio-action="toggle"]')
     const seekBar = card.querySelector<HTMLElement>('[data-audio-action="seek"]')
     const fill = card.querySelector<HTMLElement>('.audio-progress-fill')
@@ -137,7 +173,7 @@ export function useMediaCards(): MediaCards {
     const volumeFill = card.querySelector<HTMLElement>('.audio-volume-fill')
     if (!toggleBtn || !seekBar || !fill || !timeEl || !volumeToggle || !volumeBar || !volumeFill) return
 
-    const existing = players.get(mediaId)
+    const existing = players.get(card)
     if (existing) {
       existing.card = card
       existing.toggleBtn = toggleBtn
@@ -186,46 +222,50 @@ export function useMediaCards(): MediaCards {
     seekBar.addEventListener('pointerdown', (e) => {
       player.dragging = true
       seekTo(player, e.clientX)
+      const controller = new AbortController()
+      player.abort?.abort()
+      player.abort = controller
       const move = (ev: PointerEvent) => {
         if (player.dragging) seekTo(player, ev.clientX)
       }
       const up = () => {
         player.dragging = false
-        window.removeEventListener('pointermove', move)
-        window.removeEventListener('pointerup', up)
+        controller.abort()
       }
-      window.addEventListener('pointermove', move)
-      window.addEventListener('pointerup', up)
+      window.addEventListener('pointermove', move, { signal: controller.signal })
+      window.addEventListener('pointerup', up, { signal: controller.signal })
     })
 
     volumeBar.addEventListener('pointerdown', (e) => {
       player.volumeDragging = true
       setVolumeFromPointer(player, e.clientY)
+      const controller = new AbortController()
+      player.abort?.abort()
+      player.abort = controller
       const move = (ev: PointerEvent) => {
         if (player.volumeDragging) setVolumeFromPointer(player, ev.clientY)
       }
       const up = () => {
         player.volumeDragging = false
-        window.removeEventListener('pointermove', move)
-        window.removeEventListener('pointerup', up)
+        controller.abort()
       }
-      window.addEventListener('pointermove', move)
-      window.addEventListener('pointerup', up)
+      window.addEventListener('pointermove', move, { signal: controller.signal })
+      window.addEventListener('pointerup', up, { signal: controller.signal })
     })
 
-    players.set(mediaId, player)
+    players.set(card, player)
     renderProgress(player)
     renderVolume(player)
   }
 
-  function bindVideoPlayer(card: HTMLElement, mediaId: string, url: string): void {
+  function bindVideoPlayer(card: HTMLElement, url: string): void {
     const container = card.querySelector<HTMLElement>('.media-video-player')
     if (!container) return
-    const existing = videoPlayers.get(mediaId)
+    const existing = videoPlayers.get(container)
     if (existing) {
       if (existing.container?.isConnected) return
       existing.destroy()
-      videoPlayers.delete(mediaId)
+      videoPlayers.delete(container)
     }
     const theme = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() || '#3b82f6'
     const downloadUrl = `${url}${url.includes('?') ? '&' : '?'}download=1`
@@ -261,7 +301,7 @@ export function useMediaCards(): MediaCards {
       showVideoUnsupported(card, url)
     })
     player.video.preload = 'metadata'
-    videoPlayers.set(mediaId, player)
+    videoPlayers.set(container, player)
   }
 
   function showVideoUnsupported(card: HTMLElement, url: string): void {
@@ -353,30 +393,39 @@ export function useMediaCards(): MediaCards {
     const toggleBtn = target.closest<HTMLElement>('[data-audio-action="toggle"]')
     if (toggleBtn) {
       const card = toggleBtn.closest<HTMLElement>('.media-card')
-      const mediaId = card?.dataset.mediaId
-      const player = mediaId ? players.get(mediaId) : undefined
+      const player = card ? players.get(card) : undefined
       if (player) togglePlay(player)
       return
     }
     const seekBar = target.closest<HTMLElement>('[data-audio-action="seek"]')
     if (seekBar) {
       const card = seekBar.closest<HTMLElement>('.media-card')
-      const mediaId = card?.dataset.mediaId
-      const player = mediaId ? players.get(mediaId) : undefined
+      const player = card ? players.get(card) : undefined
       if (player && !player.dragging) seekTo(player, event.clientX)
       return
     }
     const volumeBtn = target.closest<HTMLElement>('[data-audio-action="volume-toggle"]')
     if (volumeBtn) {
       const card = volumeBtn.closest<HTMLElement>('.media-card')
-      const mediaId = card?.dataset.mediaId
-      const player = mediaId ? players.get(mediaId) : undefined
-      if (player) player.audio.muted = !player.audio.muted
+      const player = card ? players.get(card) : undefined
+      if (!player) return
+      if (isTouchOnly()) {
+        // 触屏无 hover：点击只展开/收起音量条（静音仅由滑动条滑到 0 触发）
+        card?.querySelector<HTMLElement>('.audio-volume-pop')?.classList.toggle('open')
+      } else {
+        player.audio.muted = !player.audio.muted
+      }
     }
   }
 
   function dispose(): void {
+    for (const observer of narrowObservers) {
+      observer.disconnect()
+    }
+    narrowObservers.clear()
     for (const player of players.values()) {
+      // 中止拖拽中的 window 指针监听（防残留）
+      player.abort?.abort()
       player.audio.pause()
       player.audio.src = ''
     }

@@ -26,3 +26,8 @@ export function login(account: string, password: string): Promise<Result<LoginRe
 export function refreshSession(refreshToken: string): Promise<Result<LoginResponse>> {
   return http.post('/session/refresh', { refreshToken })
 }
+
+/** 退出登录：吊销当前会话的 access（Header）/ refresh / media 令牌（后端黑名单，立即失效） */
+export function logout(refreshToken: string, mediaToken?: string): Promise<void> {
+  return http.post('/session/logout', { refreshToken, mediaToken })
+}

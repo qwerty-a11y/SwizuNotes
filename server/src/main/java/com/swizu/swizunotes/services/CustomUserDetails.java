@@ -40,9 +40,14 @@ public class CustomUserDetails implements UserDetails {
         return user;
     }
 
+    /** 是否管理员（is_admin 布尔列，null 视为非管理员） */
+    public boolean isAdmin() {
+        return Boolean.TRUE.equals(user.getIsAdmin());
+    }
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return List.of(new SimpleGrantedAuthority("USER"));
+        return List.of(new SimpleGrantedAuthority(isAdmin() ? "ADMIN" : "USER"));
     }
 
     @Override

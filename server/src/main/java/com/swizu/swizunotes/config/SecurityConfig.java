@@ -62,10 +62,19 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth.requestMatchers("/api/v1/session/**").permitAll())
                 .authorizeHttpRequests(auth -> auth.requestMatchers(HttpMethod.GET, "/api/v1/articles/**").permitAll())
                 .authorizeHttpRequests(auth -> auth.requestMatchers(HttpMethod.GET, "/api/v1/media/**").permitAll())
+                // 主题：公开列表/日期生效主题放行；管理列表（含未公开）与写操作仅管理员；
+                // 主题文件读取走 GET /static-resources/**（公开路径，可见性由 ThemeService 控制）
+                .authorizeHttpRequests(auth -> auth.requestMatchers(HttpMethod.GET, "/api/v1/themes/admin").hasAuthority("ADMIN"))
+                .authorizeHttpRequests(auth -> auth.requestMatchers(HttpMethod.GET, "/api/v1/themes/", "/api/v1/themes/active").permitAll())
+                .authorizeHttpRequests(auth -> auth.requestMatchers("/api/v1/themes/**").hasAuthority("ADMIN"))
+                // 静态资源放行 GET 与 HEAD（编辑弹窗用 HEAD 检查主题文件云端存在性；
+                // 只放行 GET 时 HEAD 会 403 且响应无 CORS 头，前端 fetch 报 CORS 错误）
                 .authorizeHttpRequests(auth -> auth.requestMatchers(HttpMethod.GET, "/api/v1/static-resources/**").permitAll())
+                .authorizeHttpRequests(auth -> auth.requestMatchers(HttpMethod.HEAD, "/api/v1/static-resources/**").permitAll())
                 .authorizeHttpRequests(auth -> auth.requestMatchers(HttpMethod.GET, "/api/v1/users/*/avatar").permitAll())
+                .authorizeHttpRequests(auth -> auth.requestMatchers(HttpMethod.GET, "/api/v1/users/*/articles").permitAll())
+                .authorizeHttpRequests(auth -> auth.requestMatchers(HttpMethod.GET, "/api/v1/users/*/profile").permitAll())
                 .authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
-                .formLogin(form -> form.loginProcessingUrl("/login").permitAll())
                 .exceptionHandling(ex -> ex.authenticationEntryPoint((request, response, authException) -> {
                     response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                     response.setContentType("application/json;charset=UTF-8");

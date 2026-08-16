@@ -18,9 +18,18 @@
 import http from './http'
 import type { Result } from '@/types/api'
 import type { Article, ArticleSummary, EditArticleRequest, EditArticleResponse } from '@/types/article'
+import type { MediaResponse } from '@/types/media'
 
-export function getArticles(): Promise<Result<ArticleSummary[]>> {
-  return http.get('/articles/')
+export function getArticles(keyword?: string): Promise<Result<ArticleSummary[]>> {
+  return http.get('/articles/', { params: keyword ? { keyword } : undefined })
+}
+
+export function getArticleMedia(articleId: number): Promise<Result<MediaResponse[]>> {
+  return http.get(`/articles/${articleId}/media`)
+}
+
+export function getUserArticles(userId: number, keyword?: string): Promise<Result<ArticleSummary[]>> {
+  return http.get(`/users/${userId}/articles`, { params: keyword ? { keyword } : undefined })
 }
 
 export function getArticle(articleId: number): Promise<Result<Article>> {

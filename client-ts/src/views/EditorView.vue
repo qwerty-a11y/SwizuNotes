@@ -15,24 +15,37 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  -->
 <script setup lang="ts">
-import { computed, h, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, h, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
-import { DropdownToolbar, MdEditor } from 'md-editor-v3'
+import { DropdownToolbar, MdEditor, NormalToolbar } from 'md-editor-v3'
 import 'md-editor-v3/lib/style.css'
+import DOMPurify from 'dompurify'
 import { createArticle, getArticle, updateArticle } from '@/api/article'
-import { API_BASE, TOKEN_KEY } from '@/api/http'
+import { API_BASE, MEDIA_TOKEN_KEY } from '@/api/http'
 import { mediaUrl, uploadMedia } from '@/api/media'
-import { mediaCardHtml, normalizeContent, uniqueAlias } from '@/utils/articleContent'
+import { mediaCardHtml, MEDIA_ALIAS_PATTERN, normalizeContent, uniqueAlias } from '@/utils/articleContent'
+import { toast } from '@/utils/toast'
 import { useMediaCards } from '@/composables/useMediaCards'
 import MediaUploadDialog from '@/components/MediaUploadDialog.vue'
+import MediaLibraryPanel from '@/components/MediaLibraryPanel.vue'
+import AppIcon from '@/components/AppIcon.vue'
+import { THEME_CHANGE_EVENT, getStoredTheme, isDark } from '@/theme'
 import type { ArticleContent, ArticleStatus, MediaRef } from '@/types/article'
 import type { MediaCategory, MediaResponse } from '@/types/media'
 
 const route = useRoute()
 const router = useRouter()
 
+/** 编辑器语法高亮主题：跟随网站主题（深色用 md-editor-v3 内置 dark + 深色代码主题） */
+const editorTheme = ref<'light' | 'dark'>(isDark(getStoredTheme()) ? 'dark' : 'light')
+
+/** 主题切换时同步编辑器配色（具名函数，供 onMounted 注册 / onBeforeUnmount 移除，避免监听泄漏） */
+function onThemeChange(): void {
+  editorTheme.value = isDark(getStoredTheme()) ? 'dark' : 'light'
+}
+
 const routeArticleId = Number(route.params.articleId) || 0
-/** 新文章进入编辑页时自动创建草稿，保证随时可上传文件 */
+/** 新文章进入编辑页时自动创建草稿，保证随时可上传文件（后端复用已预留的空白草稿 id） */
 const articleId = ref(routeArticleId)
 const title = ref('')
 const cover = ref('')
@@ -40,7 +53,6 @@ const summary = ref('')
 const content = ref<ArticleContent>({ body: '', mediaRefs: [] })
 const status = ref<ArticleStatus>('draft')
 const originalStatus = ref<ArticleStatus>('draft')
-const error = ref('')
 const loading = ref(false)
 
 const initialTitle = ref('')
@@ -77,10 +89,13 @@ function onBeforeUnload(event: BeforeUnloadEvent): void {
 
 onMounted(() => {
   window.addEventListener('beforeunload', onBeforeUnload)
+  window.addEventListener(THEME_CHANGE_EVENT, onThemeChange)
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('beforeunload', onBeforeUnload)
+  window.removeEventListener(THEME_CHANGE_EVENT, onThemeChange)
+  mq.removeEventListener('change', onMqChange)
 })
 
 onBeforeRouteLeave(() => {
@@ -90,7 +105,62 @@ onBeforeRouteLeave(() => {
     }
   }
 })
-const editorRef = ref<{ insert: (text: string) => void } | null>(null)
+
+/**
+ * 移动端（≤900px）：默认仅编辑（preview=false 隐藏预览），
+ * 工具栏预览按钮为 previewOnly（仅预览占满编辑区，再点返回编辑）。
+ * 注意：md-editor-v3 的 preview prop 是 boolean（true=分栏显示预览），
+ * 传字符串会被 Vue 转成 true 导致分栏，必须用布尔值。
+ */
+const isMobile = ref(false)
+const showPreview = ref(true)
+
+const mq = window.matchMedia('(max-width: 900px)')
+isMobile.value = mq.matches
+showPreview.value = !mq.matches
+function onMqChange(e: MediaQueryListEvent): void {
+  isMobile.value = e.matches
+  showPreview.value = !e.matches
+  // 跨断点：显式重置编辑器内部预览状态（rerender 只重绘不重置 setting；
+  // preview prop 仅在初始化时生效，后续变化不驱动内部状态）
+  void nextTick(() => {
+    editorRef.value?.togglePreviewOnly(false)
+    editorRef.value?.togglePreview(!e.matches)
+  })
+}
+mq.addEventListener('change', onMqChange)
+
+/** 工具栏：移动端预览按钮用 previewOnly（仅预览占满编辑区），桌面端保持 live 分栏切换 */
+const toolbarList = computed(() => [
+  'bold',
+  'italic',
+  'strikeThrough',
+  'sub',
+  'sup',
+  'quote',
+  'orderedList',
+  'unorderedList',
+  'task',
+  'link',
+  'code',
+  'codeRow',
+  'table',
+  0,
+  'divider',
+  isMobile.value ? 'previewOnly' : 'preview',
+  'fullscreen',
+  'catalog',
+  1,
+])
+
+const editorRef = ref<{
+  insert: (generate: (selectedText: string) => { targetValue: string; select?: boolean; deviationStart?: number; deviationEnd?: number }) => void
+  focus: (options: 'end') => void
+  toggleCatalog: (status?: boolean) => void
+  rerender: () => void
+  togglePreview: (status?: boolean) => void
+  togglePreviewOnly: (status?: boolean) => void
+} | null>(null)
 const editorWrap = ref<HTMLElement | null>(null)
 const mediaCards = useMediaCards()
 let fillTimer: ReturnType<typeof setTimeout> | null = null
@@ -100,13 +170,14 @@ const dialogType = ref<MediaCategory | null>(null)
 const dialogFile = ref<File | null>(null)
 const dropdownVisible = ref(false)
 
-const uploadTrigger = h(
-  'svg',
-  { viewBox: '0 0 24 24', style: 'width:1.1rem;height:1.1rem;fill:currentColor', 'aria-hidden': 'true' },
-  [h('path', { d: 'M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z' })],
-)
+const libraryOpen = ref(false)
+/** 上传/删除媒体后 +1，通知媒体库面板刷新 */
+const mediaRefreshKey = ref(0)
+const libraryTrigger = h(AppIcon, { name: 'library', size: '1.1rem' })
 
-/** 自定义工具栏：上传媒体文件悬停菜单（toolbars 中以数字 0 引用，visible 受控 + computed 响应式重建） */
+const uploadTrigger = h(AppIcon, { name: 'upload', size: '1.1rem' })
+
+/** 自定义工具栏：上传媒体文件悬停菜单（toolbars 中以数字 0 引用，visible 受控 + computed 响应式重建）；媒体库按钮（数字 1） */
 const defToolbars = computed(() => [
   h(
     DropdownToolbar,
@@ -134,9 +205,24 @@ const defToolbars = computed(() => [
         ),
     },
   ),
+  h(
+    NormalToolbar,
+    {
+      title: '媒体库',
+      onClick: () => {
+        libraryOpen.value = !libraryOpen.value
+        // 与内置目录互斥：打开媒体库时收起目录
+        editorRef.value?.toggleCatalog(false)
+      },
+    },
+    {
+      default: () => h('span', { class: 'library-trigger' }, [libraryTrigger]),
+    },
+  ),
 ])
 
 const mediaRefMap = computed(() => new Map(content.value.mediaRefs.map((ref) => [ref.alias, ref])))
+const mediaAliases = computed(() => content.value.mediaRefs.map((ref) => ref.alias))
 
 function openUploadDialog(type: MediaCategory, file?: File | null): void {
   dropdownVisible.value = false
@@ -144,9 +230,12 @@ function openUploadDialog(type: MediaCategory, file?: File | null): void {
   dialogFile.value = file ?? null
 }
 
-function onMediaUploaded(media: MediaResponse): void {
-  const alias = uniqueAlias(content.value.mediaRefs)
-  content.value.mediaRefs.push({ id: media.id, type: media.type, alias } satisfies MediaRef)
+function onMediaUploaded(media: MediaResponse, alias: string): void {
+  const finalAlias =
+    MEDIA_ALIAS_PATTERN.test(alias) && !mediaAliases.value.includes(alias)
+      ? alias
+      : uniqueAlias(content.value.mediaRefs)
+  content.value.mediaRefs.push({ id: media.id, type: media.type, alias: finalAlias } satisfies MediaRef)
   let label = ''
   try {
     label = JSON.parse(media.metadata).name || ''
@@ -154,9 +243,14 @@ function onMediaUploaded(media: MediaResponse): void {
     // 名称解析失败则用 alias
   }
   const md =
-    media.type === 'image' ? `![${label}](media://${alias})` : `[${label}](media://${alias})`
-  editorRef.value?.insert(md)
+    media.type === 'image' ? `![${label}](media://${finalAlias})` : `[${label}](media://${finalAlias})`
+  // 追加到正文末尾：先把光标移到文末再插入（insert 需传生成函数，走编辑器内部命令，可撤销）
+  editorRef.value?.focus('end')
+  editorRef.value?.insert(() => ({ targetValue: md, select: false }))
   dialogType.value = null
+  mediaRefreshKey.value += 1
+  // 上传即保存，避免刷新后引用表丢失
+  void silentSave()
 }
 
 const IMAGE_EXTS = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'svg', 'avif']
@@ -178,9 +272,9 @@ function onEditorDrop(event: DragEvent): void {
   openUploadDialog(extToCategory(f.name), f)
 }
 
-/** 预览中媒体 URL（草稿媒体附加 token） */
+/** 预览中媒体 URL（草稿媒体附加媒体专用令牌） */
 function toMediaUrl(id: string): string {
-  const token = localStorage.getItem(TOKEN_KEY)
+  const token = localStorage.getItem(MEDIA_TOKEN_KEY)
   return token
     ? `${API_BASE}/media/${id}?token=${encodeURIComponent(token)}`
     : `${API_BASE}/media/${id}`
@@ -198,14 +292,14 @@ onMounted(async () => {
       originalStatus.value = article.status
       snapshotForm()
     } catch (e) {
-      error.value = (e as Error).message
+      toast.error((e as Error).message)
     }
   } else {
     await ensureDraft()
   }
 })
 
-/** 新文章：立即创建空草稿，解锁媒体上传 */
+/** 新文章：立即创建空草稿，解锁媒体上传；后端会复用已预留的空白草稿 id，拿到 id 后写入 URL */
 async function ensureDraft(): Promise<void> {
   if (articleId.value) return
   try {
@@ -217,29 +311,31 @@ async function ensureDraft(): Promise<void> {
       status: 'draft',
     })).data
     articleId.value = result.id
+    router.replace(`/editor/${result.id}`)
     snapshotForm()
   } catch (e) {
-    error.value = `自动创建草稿失败：${(e as Error).message}`
+    toast.error(`自动创建草稿失败：${(e as Error).message}`)
   }
 }
 
 function onCoverUploaded(media: MediaResponse): void {
   cover.value = media.id
+  mediaRefreshKey.value += 1
 }
 
 function uploadCoverFile(file: File): void {
   if (!articleId.value) {
-    error.value = '请先保存文章，再上传封面图'
+    toast.error('请先保存文章，再上传封面图')
     return
   }
   if (!file.type.startsWith('image/')) {
-    error.value = '封面图必须是图片文件'
+    toast.error('封面图必须是图片文件')
     return
   }
   uploadMedia(file, articleId.value, 'image')
     .then((result) => onCoverUploaded(result.data))
     .catch((e) => {
-      error.value = (e as Error).message
+      toast.error((e as Error).message)
     })
 }
 
@@ -272,7 +368,7 @@ function onCoverDragLeave(event: DragEvent): void {
 
 async function onUploadImg(files: File[], callback: (urls: string[], texts?: string[]) => void): Promise<void> {
   if (!articleId.value) {
-    error.value = '请先保存文章，再上传图片'
+    toast.error('请先保存文章，再上传图片')
     callback([])
     return
   }
@@ -283,25 +379,113 @@ async function onUploadImg(files: File[], callback: (urls: string[], texts?: str
       const alias = uniqueAlias(content.value.mediaRefs)
       content.value.mediaRefs.push({ id: media.id, type: media.type, alias } satisfies MediaRef)
       texts.push(`![图片：${alias}](media://${alias})`)
+      mediaRefreshKey.value += 1
     } catch (e) {
-      error.value = (e as Error).message
+      toast.error((e as Error).message)
     }
   }
   callback([], texts)
+  // 上传即保存引用表
+  void silentSave()
 }
 
-/** 预览渲染：media:// 图片替换为可显示 URL，非图片链接渲染为与文章页一致的多媒体卡片 */
+/** 静默保存（上传后/定时）：保持原发布状态，成功后更新"未保存"基准 */
+let savingSilent = false
+let autosaveTimer: ReturnType<typeof setTimeout> | null = null
+async function silentSave(): Promise<void> {
+  if (!articleId.value || savingSilent) return
+  // 全空不自动保存：避免无意义的空内容保存请求
+  if (
+    title.value === '' &&
+    summary.value === '' &&
+    !cover.value &&
+    content.value.body === '' &&
+    content.value.mediaRefs.length === 0
+  ) {
+    return
+  }
+  savingSilent = true
+  try {
+    await updateArticle(articleId.value, {
+      title: title.value,
+      cover: cover.value,
+      content: { body: content.value.body, mediaRefs: content.value.mediaRefs },
+      summary: summary.value,
+      status: originalStatus.value,
+    })
+    snapshotForm()
+  } catch (e) {
+    toast.error(`自动保存失败：${(e as Error).message}`)
+  } finally {
+    savingSilent = false
+  }
+}
+
+/** 正文编辑停止 3 秒后自动保存（防抖） */
+function scheduleAutosave(): void {
+  if (autosaveTimer) clearTimeout(autosaveTimer)
+  autosaveTimer = setTimeout(() => {
+    void silentSave()
+  }, 3000)
+}
+
+watch(content.body, scheduleAutosave)
+
+/** 引用名重命名：同步正文所有 media://旧名 引用与 mediaRefs，并自动保存 */
+function onAliasSaved(media: MediaResponse, oldAlias: string | null, newAlias: string): void {
+  if (!newAlias || newAlias === oldAlias) return
+  if (oldAlias) {
+    // 负向前瞻防止 media://img1 误伤 media://img11
+    content.value.body = content.value.body.replace(
+      new RegExp(`media://${oldAlias}(?![a-z0-9_-])`, 'g'),
+      `media://${newAlias}`,
+    )
+  }
+  const ref = content.value.mediaRefs.find((r) => r.alias === oldAlias)
+  if (ref) {
+    ref.alias = newAlias
+  } else {
+    content.value.mediaRefs.push({ id: media.id, type: media.type, alias: newAlias } satisfies MediaRef)
+  }
+  void silentSave()
+}
+
+/**
+ * 媒体库删除媒体（@changed 带被删 id）：同步清理 content.mediaRefs 与正文 media:// 引用
+ * （避免悬空引用/预览破图/保存脏数据），封面引用一并清除，随后自动保存。
+ * 编辑元数据成功（changed 无 id）只触发刷新，不做清理。
+ */
+function onLibraryChanged(deletedId: string | null): void {
+  if (!deletedId) return
+  const removed = content.value.mediaRefs.filter((r) => r.id === deletedId)
+  if (!removed.length) return
+  content.value.mediaRefs = content.value.mediaRefs.filter((r) => r.id !== deletedId)
+  for (const ref of removed) {
+    // 移除正文中的 media://引用：图片引用保留 alt 文字，链接引用保留标签文字
+    const esc = ref.alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    content.value.body = content.value.body
+      .replace(new RegExp(`!\\[[^\\]]*\\]\\(media://${esc}\\)`, 'g'), (m) => m.match(/^!\[([^\]]*)\]/)?.[1] ?? '')
+      .replace(new RegExp(`\\[[^\\]]*\\]\\(media://${esc}\\)`, 'g'), (m) => m.match(/^\[([^\]]*)\]/)?.[1] ?? '')
+  }
+  // 封面引用同步清理
+  if (cover.value === deletedId) cover.value = ''
+  void silentSave()
+}
+
+/** 预览渲染：media:// 图片替换为可显示 URL，非图片链接渲染为与文章页一致的多媒体卡片；结果消毒（禁 script/事件属性） */
 function previewSanitize(html: string): string {
-  return html
-    .replace(/<img src="media:\/\/([a-z0-9_-]+)"([^>]*)>/g, (match, alias: string) => {
-      const ref = mediaRefMap.value.get(alias)
-      return ref ? `<img src="${toMediaUrl(ref.id)}" alt="">` : match
-    })
-    .replace(/<a href="media:\/\/([a-z0-9_-]+)"[^>]*>([\s\S]*?)<\/a>/g, (match, alias: string) => {
-      const ref = mediaRefMap.value.get(alias)
-      if (!ref) return match
-      return mediaCardHtml(ref, toMediaUrl(ref.id))
-    })
+  return DOMPurify.sanitize(
+    html
+      .replace(/<img src="media:\/\/([a-z0-9_-]+)"([^>]*)>/g, (match, alias: string) => {
+        const ref = mediaRefMap.value.get(alias)
+        return ref ? `<img src="${toMediaUrl(ref.id)}" alt="">` : match
+      })
+      .replace(/<a href="media:\/\/([a-z0-9_-]+)"[^>]*>([\s\S]*?)<\/a>/g, (match, alias: string) => {
+        const ref = mediaRefMap.value.get(alias)
+        if (!ref) return match
+        return mediaCardHtml(ref, toMediaUrl(ref.id))
+      }),
+  )
 }
 
 async function fillPreview(): Promise<void> {
@@ -325,6 +509,13 @@ function syncFullscreen(): void {
   editorWrap.value?.closest('.editor')?.classList.toggle('editor-fullscreen-active', isFullscreen)
 }
 
+/** 目录与媒体库互斥：目录展开时关闭媒体库 */
+function syncCatalogExclusive(): void {
+  if (!libraryOpen.value) return
+  const catalogEl = editorWrap.value?.querySelector('.md-editor-catalog-editor')
+  if (catalogEl) libraryOpen.value = false
+}
+
 onMounted(() => {
   previewObserver = new MutationObserver((mutations) => {
     let needsFill = false
@@ -336,10 +527,11 @@ onMounted(() => {
       }
       const target = mutation.target as HTMLElement
       // 播放器自身产生的 DOM 变化（ArtPlayer 渲染、封面填充等）不触发重填
-      if (target.closest?.('.media-card, .media-video')) continue
+      if (target.closest?.('.media-card, .media-video, .media-library')) continue
       needsFill = true
     }
     if (needsFill) scheduleFillPreview()
+    syncCatalogExclusive()
   })
   if (editorWrap.value) {
     previewObserver.observe(editorWrap.value, {
@@ -355,13 +547,17 @@ onMounted(() => {
 onBeforeUnmount(() => {
   previewObserver?.disconnect()
   if (fillTimer) clearTimeout(fillTimer)
+  if (autosaveTimer) clearTimeout(autosaveTimer)
   mediaCards.dispose()
 })
 
 async function saveWithStatus(saveStatus: ArticleStatus): Promise<void> {
-  error.value = ''
   loading.value = true
   try {
+    if (!articleId.value) {
+      // 新文章：等待自动草稿创建完成（避免与 onMounted 的 ensureDraft 并发创建重复文章）
+      await ensureDraft()
+    }
     let result
     if (articleId.value) {
       result = (await updateArticle(articleId.value, {
@@ -386,7 +582,7 @@ async function saveWithStatus(saveStatus: ArticleStatus): Promise<void> {
     snapshotForm()
     router.push(`/article/${result.id}`)
   } catch (e) {
-    error.value = (e as Error).message
+    toast.error((e as Error).message)
   } finally {
     loading.value = false
   }
@@ -474,13 +670,27 @@ function handleTogglePublish(): void {
       >
         <MdEditor
           ref="editorRef"
+          id="md-editor"
           v-model="content.body"
           :on-upload-img="onUploadImg"
           :sanitize="previewSanitize"
           :def-toolbars="defToolbars"
+          :preview="showPreview"
+          :toolbars="toolbarList"
+          :theme="editorTheme"
+          :code-theme="editorTheme === 'dark' ? 'atom' : 'github'"
           style="height: 520px"
           language="zh-CN"
-          :toolbars="['bold', 'italic', 'strikeThrough', 'sub', 'sup', 'quote', 'orderedList', 'unorderedList', 'task', 'link', 'code', 'codeRow', 'table', 0, 'divider', 'preview', 'fullscreen', 'catalog']"
+        />
+        <MediaLibraryPanel
+          v-if="libraryOpen"
+          :article-id="articleId"
+          :refresh-key="mediaRefreshKey"
+          :media-refs="content.mediaRefs"
+          :cover-id="cover"
+          @close="libraryOpen = false"
+          @alias-saved="onAliasSaved"
+          @changed="onLibraryChanged"
         />
       </div>
       <p class="hint">支持图片/音频/视频/文件：工具栏悬停上传或直接拖拽文件到编辑器，按扩展名自动归类；音频自动提取 ID3 封面、标题与时长</p>
@@ -491,17 +701,12 @@ function handleTogglePublish(): void {
       :type="dialogType"
       :article-id="articleId"
       :file="dialogFile"
+      :existing-aliases="mediaAliases"
       @close="dialogType = null"
       @uploaded="onMediaUploaded"
     />
 
-    <div v-if="content.mediaRefs.length" class="media-refs">
-      <span class="media-refs-title">媒体清单：</span>
-      <span v-for="ref in content.mediaRefs" :key="ref.alias" class="media-ref-tag">{{ ref.alias }}（{{ ref.type }}）</span>
-    </div>
-
     <div class="footer">
-      <p v-if="error" class="error">{{ error }}</p>
       <button class="btn-ghost" @click="handleSave" :disabled="loading">{{ loading ? '保存中…' : '保存' }}</button>
       <button class="btn-primary" @click="handleTogglePublish" :disabled="loading">
         {{ loading ? '处理中…' : status === 'published' ? '撤回' : '发布' }}
@@ -545,7 +750,7 @@ function handleTogglePublish(): void {
   max-width: 64rem;
   margin: 2rem auto 3rem;
   padding: 2rem 2.5rem 2.5rem;
-  background: rgba(255, 255, 255, 0.75);
+  background: color-mix(in srgb, var(--bg-card) 75%, transparent);
   border: 1px solid var(--border);
   border-radius: 16px;
   box-shadow: var(--shadow-card);
@@ -575,25 +780,53 @@ function handleTogglePublish(): void {
   --md-border-color: var(--border);
   --md-border-hover-color: var(--border-strong);
   --md-border-active-color: var(--primary);
+  /* 滚动条 track/thumb 用主题文本色派生，避免库默认 #e2e2e2 在浅色下过白、深色下突兀 */
+  --md-scrollbar-bg-color: color-mix(in srgb, var(--text-faint) 18%, transparent);
+  --md-scrollbar-thumb-color: color-mix(in srgb, var(--text-faint) 55%, transparent);
+  --md-scrollbar-thumb-hover-color: color-mix(in srgb, var(--text-faint) 75%, transparent);
+  --md-scrollbar-thumb-active-color: color-mix(in srgb, var(--text-faint) 75%, transparent);
 }
 
 :deep(.md-editor.md-editor-fullscreen) {
-  --md-bk-color: #fff;
-  --md-bk-color-outstand: #f2f2f2;
-  --md-bk-hover-color: #f5f7fa;
-  background-color: #fff;
+  --md-bk-color: var(--bg-card);
+  --md-bk-color-outstand: var(--bg-muted);
+  --md-bk-hover-color: var(--bg-muted);
+  background-color: var(--bg-card);
 }
 
 .editor-fullscreen-active {
   z-index: 200;
 }
 
-:deep(.upload-trigger) {
+:deep(.upload-trigger),
+:deep(.library-trigger) {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 100%;
   height: 100%;
+}
+
+/* 上传/表格等展开菜单：库样式背景用 --md-bk-color（被设为 transparent），需显式底色 */
+:deep(.md-editor-dropdown) {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: var(--shadow-card);
+}
+
+/* 内置目录面板：同理（background-color: var(--md-bk-color)） */
+:deep(.md-editor-catalog-editor) {
+  background-color: var(--bg-card);
+}
+
+:deep(.md-editor-menu) {
+  background-color: var(--bg-card);
+  box-shadow: var(--shadow-card);
+}
+
+.editor-wrap {
+  position: relative;
 }
 
 :deep(.md-editor-preview) {
@@ -621,6 +854,58 @@ function handleTogglePublish(): void {
   box-shadow: var(--shadow-card);
 }
 
+/* 名称行（名称 + 下载按钮），播放器控件在下一行 */
+:deep(.md-editor-preview .media-card-head) {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+:deep(.md-editor-preview .media-card-head .media-card-name) {
+  flex: 1;
+  min-width: 0;
+}
+
+/* 窄卡片（useMediaCards 按卡片自身宽度 ≤ 480px 加 is-narrow）：压缩封面/控件尺寸，隐藏时间文本 */
+:deep(.md-editor-preview .media-card.is-narrow) {
+  gap: 0.6rem;
+  padding: 0.6rem 0.75rem;
+}
+
+:deep(.md-editor-preview .media-card.is-narrow .media-card-cover) {
+  width: 3.25rem;
+  height: 3.25rem;
+}
+
+:deep(.md-editor-preview .media-card.is-narrow .audio-player) {
+  gap: 0.4rem;
+}
+
+:deep(.md-editor-preview .media-card.is-narrow .audio-toggle) {
+  width: 2rem;
+  height: 2rem;
+}
+
+:deep(.md-editor-preview .media-card.is-narrow .audio-toggle svg) {
+  width: 1rem;
+  height: 1rem;
+}
+
+:deep(.md-editor-preview .media-card.is-narrow .audio-time) {
+  display: none;
+}
+
+:deep(.md-editor-preview .media-card.is-narrow .audio-volume-toggle) {
+  width: 1.4rem;
+  height: 1.4rem;
+}
+
+:deep(.md-editor-preview .media-card.is-narrow .audio-volume-toggle svg) {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
 :deep(.md-editor-preview .media-card-cover) {
   flex-shrink: 0;
   width: 4.5rem;
@@ -645,6 +930,25 @@ function handleTogglePublish(): void {
   font-weight: 600;
   letter-spacing: 0.1em;
   color: var(--text-faint);
+}
+
+/* 文件卡片格式图标：颜色跟随主题色，窄卡片时略缩小 */
+:deep(.md-editor-preview .media-card-file-icon) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary);
+}
+
+:deep(.md-editor-preview .media-card-file-icon svg) {
+  width: 2.4rem;
+  height: 2.4rem;
+  fill: currentColor;
+}
+
+:deep(.md-editor-preview .media-card.is-narrow .media-card-file-icon svg) {
+  width: 2rem;
+  height: 2rem;
 }
 
 :deep(.md-editor-preview .media-card-body) {
@@ -741,6 +1045,8 @@ function handleTogglePublish(): void {
   background: var(--bg-muted);
   border-radius: 2px;
   overflow: hidden;
+  /* 触屏滑动调节时禁止页面滚动 */
+  touch-action: none;
 }
 
 :deep(.md-editor-preview .audio-progress-fill) {
@@ -779,8 +1085,16 @@ function handleTogglePublish(): void {
     visibility 0.15s;
 }
 
-:deep(.md-editor-preview .audio-volume:hover .audio-volume-pop),
-:deep(.md-editor-preview .audio-volume-pop:hover) {
+@media (hover: hover) {
+  :deep(.md-editor-preview .audio-volume:hover .audio-volume-pop),
+  :deep(.md-editor-preview .audio-volume-pop:hover) {
+    opacity: 1;
+    visibility: visible;
+  }
+}
+
+/* 触屏设备：点击音量按钮加 open class 展开（无 hover） */
+:deep(.md-editor-preview .audio-volume-pop.open) {
   opacity: 1;
   visibility: visible;
 }
@@ -825,6 +1139,8 @@ function handleTogglePublish(): void {
   border-radius: 2px;
   overflow: hidden;
   cursor: pointer;
+  /* 触屏滑动调节时禁止页面滚动 */
+  touch-action: none;
 }
 
 :deep(.md-editor-preview .audio-volume-fill) {
@@ -844,6 +1160,20 @@ function handleTogglePublish(): void {
   background: #000;
   border-radius: 8px;
   overflow: hidden;
+}
+
+/* 窄容器（is-narrow ≤480px）：控制条控件溢出被裁剪，
+   隐藏非核心控件（倍速/画中画/网页全屏）并缩小控制条尺寸，保证完整展示 */
+:deep(.md-editor-preview .media-video.is-narrow .art-video-player) {
+  --art-control-height: 34px;
+  --art-control-icon-size: 26px;
+  --art-control-icon-scale: 1;
+}
+
+:deep(.md-editor-preview .media-video.is-narrow .art-control-playbackRate),
+:deep(.md-editor-preview .media-video.is-narrow .art-control-pip),
+:deep(.md-editor-preview .media-video.is-narrow .art-control-fullscreenWeb) {
+  display: none;
 }
 
 :deep(.md-editor-preview .media-video-title) {
@@ -922,7 +1252,6 @@ function handleTogglePublish(): void {
   padding: 1rem;
   border: 2px dashed var(--border-strong);
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.6);
   color: var(--text-muted);
   font-size: 1rem;
   font-weight: 600;
@@ -956,8 +1285,8 @@ function handleTogglePublish(): void {
   justify-content: center;
   font-size: 1rem;
   font-weight: 600;
-  color: #fff;
-  background: rgba(37, 99, 235, 0.65);
+  color: var(--on-primary);
+  background: var(--drag-mask-bg);
   border-radius: 12px;
   pointer-events: none;
 }
@@ -986,7 +1315,7 @@ function handleTogglePublish(): void {
   align-items: center;
   justify-content: center;
   gap: 0.75rem;
-  background: rgba(15, 23, 42, 0.45);
+  background: var(--overlay-bg);
   border-radius: 8px;
   opacity: 0;
   transition: opacity 0.2s ease;
@@ -1000,57 +1329,25 @@ function handleTogglePublish(): void {
   padding: 0.4rem 1rem;
   font-size: 0.85rem;
   font-weight: 600;
-  color: #fff;
-  background: rgba(255, 255, 255, 0.18);
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  color: var(--overlay-btn-text);
+  background: var(--overlay-btn-bg);
+  border: 1px solid var(--overlay-btn-border);
   border-radius: 6px;
   cursor: pointer;
   transition: background 0.2s ease;
 }
 
 .cover-action:hover {
-  background: rgba(255, 255, 255, 0.32);
+  background: var(--overlay-btn-bg-hover);
 }
 
 .cover-action input {
   display: none;
 }
 
-.media-refs {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.6rem 0.75rem;
-  background: var(--primary-soft);
-  border: 1px solid var(--primary-soft-border);
-  border-radius: 8px;
-}
-
-.media-refs-title {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--primary-active);
-}
-
-.media-ref-tag {
-  font-size: 0.8rem;
-  color: var(--primary-active);
-  background: var(--bg-card);
-  border: 1px solid var(--primary-soft-border);
-  border-radius: 999px;
-  padding: 0.15rem 0.6rem;
-}
-
 .hint {
   color: var(--text-faint);
   font-size: 0.85rem;
-  margin: 0;
-}
-
-.error {
-  color: var(--danger);
-  font-size: 0.9rem;
   margin: 0;
 }
 

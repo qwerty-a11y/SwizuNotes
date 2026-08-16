@@ -31,4 +31,7 @@ export type MediaResponse = Media
 export interface LoginResponse {
   accessToken: string
   refreshToken: string
+  /** 媒体专用令牌（12 小时，仅媒体 URL query 使用） */
+  mediaToken: string
+  userId: number
 }

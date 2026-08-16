@@ -16,7 +16,9 @@
  */
 
 import { marked } from 'marked'
-import { API_BASE, TOKEN_KEY } from '@/api/http'
+import DOMPurify from 'dompurify'
+import { API_BASE, MEDIA_TOKEN_KEY } from '@/api/http'
+import { fileIconSvg } from '@/utils/fileIcons'
 import type { ArticleContent, MediaRef } from '@/types/article'
 
 export const MEDIA_ALIAS_PATTERN = /^[a-z][a-z0-9_-]{0,31}$/
@@ -35,7 +37,7 @@ export function normalizeContent(content: ArticleContent | string | null | undef
 
 export function renderBody(body: string, mediaRefs: MediaRef[] = []): string {
   const mediaMap = new Map(mediaRefs.map((ref) => [ref.alias, ref]))
-  const token = localStorage.getItem(TOKEN_KEY)
+  const token = localStorage.getItem(MEDIA_TOKEN_KEY)
   const toUrl = (id: string): string =>
     token ? `${API_BASE}/media/${id}?token=${encodeURIComponent(token)}` : `${API_BASE}/media/${id}`
 
@@ -65,7 +67,11 @@ export function renderBody(body: string, mediaRefs: MediaRef[] = []): string {
     return origImage.call(renderer, args)
   }
 
-  return marked.parse(body || '', { async: false, renderer })
+  // 渲染结果必须消毒后才能 v-html：marked 默认原样透传正文 HTML，
+  // DOMPurify 默认配置会移除 <script>/<iframe>/<style>、全部 on* 事件属性、
+  // javascript:/data: 等危险 URL（同时保留 media 卡片所需的 svg/button/data-* 结构）。
+  // 后续若引入"脚本签名机制"，可在此按签名白名单放行特定 <script>。
+  return DOMPurify.sanitize(marked.parse(body || '', { async: false, renderer }))
 }
 
 function mediaRefFromHref(href: string | null | undefined, mediaMap: Map<string, MediaRef>): MediaRef | undefined {
@@ -75,7 +81,12 @@ function mediaRefFromHref(href: string | null | undefined, mediaMap: Map<string,
 }
 
 function escapeHtml(text: string): string {
-  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
 }
 
 /** 音频/视频/文件的自定义渲染（名称/封面由 info 接口异步填充），预览与正文共用 */
@@ -89,7 +100,12 @@ export function mediaCardHtml(ref: MediaRef, url: string): string {
   }
   const body =
     type === 'audio'
-      ? `<span class="media-card-name">${escapeHtml(ref.alias)}</span>
+      ? `<div class="media-card-head">
+           <span class="media-card-name">${escapeHtml(ref.alias)}</span>
+           <a class="media-icon-btn" href="${escapeHtml(url)}" title="下载" aria-label="下载">
+             <svg viewBox="0 0 1024 1024" aria-hidden="true"><path d="M853.333333 853.333333a42.666667 42.666667 0 0 1 0 85.333334H170.666667a42.666667 42.666667 0 0 1 0-85.333334h682.666666zM512 85.504a42.666667 42.666667 0 0 1 42.666667 42.666667v515.370666l204.373333-204.373333a42.666667 42.666667 0 0 1 63.914667 56.277333l-3.584 4.010667-277.376 277.546667a42.666667 42.666667 0 0 1-56.32 3.584l-4.010667-3.541334-277.12-276.650666a42.666667 42.666667 0 0 1 56.234667-63.957334l4.010666 3.541334L469.333333 644.096V128.170667a42.666667 42.666667 0 0 1 42.666667-42.666667z"/></svg>
+           </a>
+         </div>
          <div class="audio-player">
            <button type="button" class="audio-toggle" data-audio-action="toggle" aria-label="播放">
              <svg class="audio-icon-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
@@ -110,13 +126,14 @@ export function mediaCardHtml(ref: MediaRef, url: string): string {
                </div>
              </div>
            </div>
-           <a class="media-icon-btn" href="${escapeHtml(url)}" title="下载" aria-label="下载">
-             <svg viewBox="0 0 1024 1024" aria-hidden="true"><path d="M853.333333 853.333333a42.666667 42.666667 0 0 1 0 85.333334H170.666667a42.666667 42.666667 0 0 1 0-85.333334h682.666666zM512 85.504a42.666667 42.666667 0 0 1 42.666667 42.666667v515.370666l204.373333-204.373333a42.666667 42.666667 0 0 1 63.914667 56.277333l-3.584 4.010667-277.376 277.546667a42.666667 42.666667 0 0 1-56.32 3.584l-4.010667-3.541334-277.12-276.650666a42.666667 42.666667 0 0 1 56.234667-63.957334l4.010666 3.541334L469.333333 644.096V128.170667a42.666667 42.666667 0 0 1 42.666667-42.666667z"/></svg>
-           </a>
          </div>`
       : `<span class="media-card-name">${escapeHtml(ref.alias)}</span><span class="media-card-size"></span>`
   return `<div class="media-card media-${type}" data-media-id="${escapeHtml(ref.id)}" data-url="${escapeHtml(url)}">
-    <div class="media-card-cover"><span class="media-card-type">${type.toUpperCase()}</span></div>
+    <div class="media-card-cover">${
+      type === 'file'
+        ? `<span class="media-card-file-icon">${fileIconSvg(ref.alias)}</span>`
+        : `<span class="media-card-type">${type.toUpperCase()}</span>`
+    }</div>
     <div class="media-card-body">${body}</div>
     ${type === 'file' ? `<a class="media-icon-btn" href="${escapeHtml(url)}" title="下载" aria-label="下载">
       <svg viewBox="0 0 1024 1024" aria-hidden="true"><path d="M853.333333 853.333333a42.666667 42.666667 0 0 1 0 85.333334H170.666667a42.666667 42.666667 0 0 1 0-85.333334h682.666666zM512 85.504a42.666667 42.666667 0 0 1 42.666667 42.666667v515.370666l204.373333-204.373333a42.666667 42.666667 0 0 1 63.914667 56.277333l-3.584 4.010667-277.376 277.546667a42.666667 42.666667 0 0 1-56.32 3.584l-4.010667-3.541334-277.12-276.650666a42.666667 42.666667 0 0 1 56.234667-63.957334l4.010666 3.541334L469.333333 644.096V128.170667a42.666667 42.666667 0 0 1 42.666667-42.666667z"/></svg>
@@ -130,21 +147,30 @@ export interface TocItem {
   level: number
 }
 
+/**
+ * 提取目录（与 renderBody 的 heading id 计数**同源**）：
+ * 直接走 marked.lexer 的同一份 token 流遍历 heading（含 Setext 标题、列表内标题），
+ * 并天然跳过代码围栏内形如 `## x` 的行——与 renderBody 的 renderer.heading 计数完全一致，
+ * 避免此前"行正则扫描"在代码块/Setext 标题下导致目录锚点错位。
+ */
 export function extractHeadings(body: string): TocItem[] {
   const items: TocItem[] = []
   let index = 0
-  for (const line of body.split('\n')) {
-    const m = line.match(/^(#{1,6})\s+(.+?)\s*#*\s*$/)
-    if (m) {
-      index += 1
-      const raw = m[2].trim()
-      const text = raw
-        .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
-        .replace(/[*_`~]/g, '')
-        .trim()
-      items.push({ id: `heading-${index}`, text, level: m[1].length })
+  const walk = (tokens: marked.Token[]): void => {
+    for (const token of tokens) {
+      if (token.type === 'heading') {
+        const heading = token as marked.Tokens.Heading
+        index += 1
+        items.push({ id: `heading-${index}`, text: heading.text.trim(), level: heading.depth })
+      } else {
+        const nested = (token as { tokens?: marked.Token[] }).tokens
+        if (nested && nested.length) {
+          walk(nested)
+        }
+      }
     }
   }
+  walk(marked.lexer(body || ''))
   return items
 }
 

@@ -28,6 +28,12 @@ import org.springframework.stereotype.Service;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+/**
+ * 静态资源白名单读取（id=文件名，path=磁盘路径）。
+ * 主题文件也登记在 static_resources 表，但可见性（发布/预览令牌）与
+ * CSS 占位符替换由 ThemeService 处理（见 StaticResourceController 的转发逻辑），
+ * 本服务只负责"表里有就按白名单读文件"。
+ */
 @Service
 public class StaticResourceService {
 

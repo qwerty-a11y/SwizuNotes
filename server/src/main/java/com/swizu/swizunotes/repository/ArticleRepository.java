@@ -22,6 +22,8 @@ import com.swizu.swizunotes.entity.ArticleStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -38,7 +40,46 @@ public interface ArticleRepository extends JpaRepository<Article, Integer> {
 
     Page<Article> findAllByAuthorIdAndStatus(Integer authorId, ArticleStatus status, Pageable pageable);
 
+    List<Article> findAllByAuthorIdOrderByPublishTimeDesc(Integer authorId);
+
+    List<Article> findAllByAuthorIdAndStatusOrderByPublishTimeDesc(Integer authorId, ArticleStatus status);
+
     List<Article> findAllByStatusOrderByPublishTimeDesc(ArticleStatus status);
+
+    /** 全局搜索：按标题/摘要 LIKE 过滤已发布文章（keyword 为空时返回全部） */
+    @Query("""
+            SELECT a FROM Article a
+            WHERE a.status = :status
+              AND (:keyword = ''
+                   OR LOWER(a.title) LIKE LOWER(CONCAT('%', :keyword, '%')) ESCAPE '\\'
+                   OR LOWER(a.summary) LIKE LOWER(CONCAT('%', :keyword, '%')) ESCAPE '\\')
+            ORDER BY a.publishTime DESC
+            """)
+    List<Article> searchByStatus(@Param("status") ArticleStatus status, @Param("keyword") String keyword);
+
+    /** 用户全部文章（含草稿）按关键词过滤 */
+    @Query("""
+            SELECT a FROM Article a
+            WHERE a.authorId = :authorId
+              AND (:keyword = ''
+                   OR LOWER(a.title) LIKE LOWER(CONCAT('%', :keyword, '%')) ESCAPE '\\'
+                   OR LOWER(a.summary) LIKE LOWER(CONCAT('%', :keyword, '%')) ESCAPE '\\')
+            ORDER BY a.publishTime DESC
+            """)
+    List<Article> searchByAuthorId(@Param("authorId") Integer authorId, @Param("keyword") String keyword);
+
+    /** 用户已发布文章按关键词过滤 */
+    @Query("""
+            SELECT a FROM Article a
+            WHERE a.authorId = :authorId AND a.status = :status
+              AND (:keyword = ''
+                   OR LOWER(a.title) LIKE LOWER(CONCAT('%', :keyword, '%')) ESCAPE '\\'
+                   OR LOWER(a.summary) LIKE LOWER(CONCAT('%', :keyword, '%')) ESCAPE '\\')
+            ORDER BY a.publishTime DESC
+            """)
+    List<Article> searchByAuthorIdAndStatus(@Param("authorId") Integer authorId,
+                                            @Param("status") ArticleStatus status,
+                                            @Param("keyword") String keyword);
 
     Article save(Article article);
 }

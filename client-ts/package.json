@@ -12,6 +12,8 @@
   "dependencies": {
     "artplayer": "^5.4.0",
     "axios": "^1.7.9",
+    "cropperjs": "^1.6.2",
+    "dompurify": "^3.4.13",
     "marked": "^15.0.6",
     "md-editor-v3": "^6.5.6",
     "music-metadata": "^11.14.0",

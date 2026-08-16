@@ -204,6 +204,58 @@ onBeforeUnmount(() => {
   box-shadow: var(--shadow-card);
 }
 
+/* 名称行（名称 + 下载按钮），播放器控件在下一行 */
+.article-content :deep(.media-card-head) {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.article-content :deep(.media-card-head .media-card-name) {
+  flex: 1;
+  min-width: 0;
+}
+
+/* 窄卡片（useMediaCards 按卡片自身宽度 ≤ 480px 加 is-narrow）：压缩封面/控件尺寸，隐藏时间文本 */
+.article-content :deep(.media-card.is-narrow) {
+  gap: 0.6rem;
+  padding: 0.6rem 0.75rem;
+}
+
+.article-content :deep(.media-card.is-narrow .media-card-cover) {
+  width: 3.25rem;
+  height: 3.25rem;
+}
+
+.article-content :deep(.media-card.is-narrow .audio-player) {
+  gap: 0.4rem;
+}
+
+.article-content :deep(.media-card.is-narrow .audio-toggle) {
+  width: 2rem;
+  height: 2rem;
+}
+
+.article-content :deep(.media-card.is-narrow .audio-toggle svg) {
+  width: 1rem;
+  height: 1rem;
+}
+
+.article-content :deep(.media-card.is-narrow .audio-time) {
+  display: none;
+}
+
+.article-content :deep(.media-card.is-narrow .audio-volume-toggle) {
+  width: 1.4rem;
+  height: 1.4rem;
+}
+
+.article-content :deep(.media-card.is-narrow .audio-volume-toggle svg) {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
 .article-content :deep(.media-card-cover) {
   flex-shrink: 0;
   width: 4.5rem;
@@ -228,6 +280,25 @@ onBeforeUnmount(() => {
   font-weight: 600;
   letter-spacing: 0.1em;
   color: var(--text-faint);
+}
+
+/* 文件卡片格式图标：颜色跟随主题色，窄卡片时略缩小 */
+.article-content :deep(.media-card-file-icon) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary);
+}
+
+.article-content :deep(.media-card-file-icon svg) {
+  width: 2.4rem;
+  height: 2.4rem;
+  fill: currentColor;
+}
+
+.article-content :deep(.media-card.is-narrow .media-card-file-icon svg) {
+  width: 2rem;
+  height: 2rem;
 }
 
 .article-content :deep(.media-card-body) {
@@ -265,6 +336,20 @@ onBeforeUnmount(() => {
   background: #000;
   border-radius: 8px;
   overflow: hidden;
+}
+
+/* 窄容器（is-narrow ≤480px）：控制条控件溢出被裁剪，
+   隐藏非核心控件（倍速/画中画/网页全屏）并缩小控制条尺寸，保证完整展示 */
+.article-content :deep(.media-video.is-narrow .art-video-player) {
+  --art-control-height: 34px;
+  --art-control-icon-size: 26px;
+  --art-control-icon-scale: 1;
+}
+
+.article-content :deep(.media-video.is-narrow .art-control-playbackRate),
+.article-content :deep(.media-video.is-narrow .art-control-pip),
+.article-content :deep(.media-video.is-narrow .art-control-fullscreenWeb) {
+  display: none;
 }
 
 .article-content :deep(.media-video-player video) {
@@ -405,6 +490,8 @@ onBeforeUnmount(() => {
   background: var(--bg-muted);
   border-radius: 2px;
   overflow: hidden;
+  /* 触屏滑动调节时禁止页面滚动 */
+  touch-action: none;
 }
 
 .article-content :deep(.audio-progress-fill) {
@@ -443,8 +530,16 @@ onBeforeUnmount(() => {
     visibility 0.15s;
 }
 
-.article-content :deep(.audio-volume:hover .audio-volume-pop),
-.article-content :deep(.audio-volume-pop:hover) {
+@media (hover: hover) {
+  .article-content :deep(.audio-volume:hover .audio-volume-pop),
+  .article-content :deep(.audio-volume-pop:hover) {
+    opacity: 1;
+    visibility: visible;
+  }
+}
+
+/* 触屏设备：点击音量按钮加 open class 展开（无 hover） */
+.article-content :deep(.audio-volume-pop.open) {
   opacity: 1;
   visibility: visible;
 }
@@ -494,6 +589,8 @@ onBeforeUnmount(() => {
   border-radius: 2px;
   overflow: hidden;
   cursor: pointer;
+  /* 触屏滑动调节时禁止页面滚动 */
+  touch-action: none;
 }
 
 .article-content :deep(.audio-volume-fill) {

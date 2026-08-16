@@ -18,14 +18,13 @@
 package com.swizu.swizunotes.entity;
 
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 import java.util.List;
 
 @Data
 public class ArticleContent {
-    @NotBlank(message = "正文不能为空")
+    // 正文允许为空（空白草稿预留 id 需要空正文）；发布状态下的非空校验在服务层执行
     private String body;
 
     @Valid

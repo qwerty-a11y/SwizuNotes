@@ -23,9 +23,14 @@ import lombok.Data;
 public class LoginResponse {
     private String accessToken;
     private String refreshToken;
+    /** 媒体专用令牌（12 小时，仅媒体 URL query 使用，避免 access token 进入 URL） */
+    private String mediaToken;
+    private Integer userId;
 
-    public LoginResponse(String accessToken, String refreshToken) {
+    public LoginResponse(String accessToken, String refreshToken, String mediaToken, Integer userId) {
         this.accessToken = accessToken;
         this.refreshToken = refreshToken;
+        this.mediaToken = mediaToken;
+        this.userId = userId;
     }
 }

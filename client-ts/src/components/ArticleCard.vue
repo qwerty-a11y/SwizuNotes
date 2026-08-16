@@ -20,6 +20,9 @@ import type { ArticleSummary } from '@/types/article'
 
 defineProps<{
   article: ArticleSummary
+  to?: string
+  /** 紧凑模式：更矮的封面、更小的内边距/字号/间距（个人中心列表用） */
+  compact?: boolean
 }>()
 
 function formatDate(value: string): string {
@@ -30,7 +33,7 @@ function formatDate(value: string): string {
 </script>
 
 <template>
-  <RouterLink class="card" :to="`/article/${article.id}`">
+  <RouterLink class="card" :class="{ compact }" :to="to || `/article/${article.id}`">
     <div class="cover">
       <img v-if="article.cover" class="cover-img" :src="mediaUrl(article.cover)" alt="封面图" />
       <div v-else class="cover-placeholder">SwizuNotes</div>
@@ -119,5 +122,41 @@ function formatDate(value: string): string {
   margin-top: auto;
   color: var(--text-faint);
   font-size: 0.8rem;
+}
+
+/* ===== 紧凑模式（个人中心列表） ===== */
+
+.card.compact {
+  border-radius: 12px;
+}
+
+.card.compact:hover {
+  transform: translateY(-2px);
+}
+
+.card.compact .cover {
+  aspect-ratio: 16 / 9;
+}
+
+.card.compact .body {
+  padding: 0.85rem 1rem;
+}
+
+.card.compact .title {
+  margin: 0 0 0.25rem;
+  font-size: 1.05rem;
+}
+
+.card.compact .summary {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  /* 最多两行，超出省略，避免长摘要撑高卡片 */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  /* 右侧为右下角悬浮按钮让位（按钮组宽约 4.75rem，移动端约 5.35rem），
+     摘要文本不沾按钮区；日期行靠左且很短，无需让位 */
+  padding-right: 5.5rem;
 }
 </style>

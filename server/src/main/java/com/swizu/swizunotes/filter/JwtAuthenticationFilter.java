@@ -18,6 +18,7 @@
 package com.swizu.swizunotes.filter;
 
 import com.swizu.swizunotes.services.CustomUserDetailsService;
+import com.swizu.swizunotes.services.TokenBlacklistService;
 import com.swizu.swizunotes.util.JwtUtils;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
@@ -27,9 +28,11 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataAccessException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -42,6 +45,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private JwtUtils jwtUtils;
     @Autowired
     private CustomUserDetailsService customUserDetailsService;
+    @Autowired
+    private TokenBlacklistService tokenBlacklistService;
 
 
     @Override
@@ -49,12 +54,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         log.debug("JWT filter enter: {} {}, authHeader={}", request.getMethod(), request.getRequestURI(),
                 request.getHeader("Authorization") != null);
         String jwt = null;
+        boolean fromHeader = false;
         final String authHeader = request.getHeader("Authorization");
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             jwt = authHeader.substring(7);
+            fromHeader = true;
         } else if (isMediaRead(request)) {
-            // <img> 标签无法携带 Authorization 头，草稿文章的媒体读取允许用 query 参数携带 JWT
-            jwt = request.getParameter("token");
+            // <img> 标签无法携带 Authorization 头，草稿文章的媒体读取允许用 query 参数携带
+            // **媒体专用令牌**（type=media，权限面仅媒体读取）；access/refresh 令牌不再接受进 URL
+            String queryToken = request.getParameter("token");
+            if (queryToken != null && jwtUtils.isMediaToken(queryToken)) {
+                jwt = queryToken;
+            }
         }
 
         if (jwt != null){
@@ -67,8 +78,22 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             log.debug("JWT filter: account={}", account);
 
             if (account != null && SecurityContextHolder.getContext().getAuthentication() == null){
-                UserDetails user = customUserDetailsService.loadUserByUsername(account);
-                if (jwtUtils.validateToken(jwt) && jwtUtils.isAccessToken(jwt)){
+                UserDetails user = null;
+                try {
+                    user = customUserDetailsService.loadUserByUsername(account);
+                } catch (UsernameNotFoundException e) {
+                    // 签名合法但账号已删除：不设认证，交由后续 401（不落入容器 /error 的 500）
+                    log.debug("JWT filter: account not found: {}", account);
+                } catch (DataAccessException e) {
+                    // DB 临时故障：按匿名处理，避免过滤器内未捕获异常传播成 500
+                    log.warn("JWT filter: load user failed, treating as anonymous", e);
+                }
+                // 类型闸门：Header 路径只认 access，query 路径只认 media；再查吊销黑名单
+                boolean typeOk = fromHeader ? jwtUtils.isAccessToken(jwt) : jwtUtils.isMediaToken(jwt);
+                if (user != null
+                        && jwtUtils.validateToken(jwt)
+                        && typeOk
+                        && !tokenBlacklistService.isRevoked(jwtUtils.extractJti(jwt))){
                     UsernamePasswordAuthenticationToken authToken =
                             new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
                     SecurityContextHolder.getContext().setAuthentication(authToken);

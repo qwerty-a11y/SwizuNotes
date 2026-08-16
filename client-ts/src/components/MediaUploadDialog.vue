@@ -15,27 +15,49 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  -->
 <script setup lang="ts">
-import { onBeforeUnmount, ref, watch } from 'vue'
+import { ref, watch } from 'vue'
 import { parseBlob } from 'music-metadata'
 import { uploadMedia } from '@/api/media'
+import { MEDIA_ALIAS_PATTERN, uniqueAlias } from '@/utils/articleContent'
+import MediaCoverPicker from '@/components/MediaCoverPicker.vue'
 import type { MediaCategory, MediaResponse } from '@/types/media'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   type: MediaCategory
   articleId: number
   file?: File | null
-}>()
+  existingAliases?: string[]
+}>(), {
+  file: null,
+  existingAliases: () => [],
+})
 
 const emit = defineEmits<{
   close: []
-  uploaded: [media: MediaResponse]
+  uploaded: [media: MediaResponse, alias: string]
 }>()
 
 const file = ref<File | null>(null)
 const name = ref('')
+const alias = ref('')
+const aliasEdited = ref(false)
+
+const ALIAS_PREFIX: Record<MediaCategory, string> = {
+  image: 'img',
+  audio: 'audio',
+  video: 'video',
+  file: 'file',
+}
+
+function generateAlias(): string {
+  return uniqueAlias(props.existingAliases, ALIAS_PREFIX[props.type])
+}
+
+function onAliasInput(): void {
+  aliasEdited.value = true
+}
 const duration = ref<number | null>(null)
 const coverBlob = ref<Blob | null>(null)
-const coverUrl = ref('')
 const analyzing = ref(false)
 const uploading = ref(false)
 const error = ref('')
@@ -87,9 +109,15 @@ function onDrop(event: DragEvent): void {
 async function analyze(f: File): Promise<void> {
   file.value = f
   name.value = f.name.replace(/\.[^.]+$/, '')
+  // 用户改过别名：保留输入；但换文件后若与已有引用名冲突（或为空）则回退自动生成
+  if (aliasEdited.value) {
+    const cur = alias.value.trim()
+    if (!cur || props.existingAliases.includes(cur)) alias.value = generateAlias()
+  } else {
+    alias.value = generateAlias()
+  }
   duration.value = null
   coverBlob.value = null
-  coverUrl.value = ''
   error.value = ''
   analyzing.value = true
   try {
@@ -100,7 +128,6 @@ async function analyze(f: File): Promise<void> {
       const picture = meta.common.picture?.[0]
       if (picture) {
         coverBlob.value = new Blob([picture.data], { type: picture.format })
-        coverUrl.value = URL.createObjectURL(coverBlob.value)
       }
     } else if (props.type === 'video') {
       duration.value = await probeVideoDuration(f)
@@ -130,26 +157,19 @@ function probeVideoDuration(f: File): Promise<number | null> {
   })
 }
 
-function clearCover(): void {
-  if (coverUrl.value) URL.revokeObjectURL(coverUrl.value)
-  coverBlob.value = null
-  coverUrl.value = ''
-}
-
-function onCoverPick(event: Event): void {
-  const input = event.target as HTMLInputElement
-  const f = input.files?.[0]
-  input.value = ''
-  if (!f) return
-  if (coverUrl.value) URL.revokeObjectURL(coverUrl.value)
-  coverBlob.value = f
-  coverUrl.value = URL.createObjectURL(f)
-}
-
 async function confirm(): Promise<void> {
   if (!file.value || analyzing.value) return
   if (!props.articleId) {
     error.value = '请先保存文章，再上传文件'
+    return
+  }
+  const finalAlias = alias.value.trim() || generateAlias()
+  if (!MEDIA_ALIAS_PATTERN.test(finalAlias)) {
+    error.value = '别名仅限小写字母/数字/_/-，以字母开头，1-32 位'
+    return
+  }
+  if (props.existingAliases.includes(finalAlias)) {
+    error.value = `别名 ${finalAlias} 已被使用，请更换`
     return
   }
   error.value = ''
@@ -168,16 +188,16 @@ async function confirm(): Promise<void> {
         imageId,
         duration: duration.value,
       }))
-      closeWithCallback(() => emit('uploaded', result.data))
+      closeWithCallback(() => emit('uploaded', result.data, finalAlias))
     } else if (props.type === 'video') {
       const result = await uploadMedia(file.value, props.articleId, 'video', JSON.stringify({
         name: finalName,
         duration: duration.value,
       }))
-      closeWithCallback(() => emit('uploaded', result.data))
+      closeWithCallback(() => emit('uploaded', result.data, finalAlias))
     } else {
       const result = await uploadMedia(file.value, props.articleId, props.type, JSON.stringify({ name: finalName }))
-      closeWithCallback(() => emit('uploaded', result.data))
+      closeWithCallback(() => emit('uploaded', result.data, finalAlias))
     }
   } catch (e) {
     error.value = (e as Error).message
@@ -185,10 +205,6 @@ async function confirm(): Promise<void> {
     uploading.value = false
   }
 }
-
-onBeforeUnmount(() => {
-  if (coverUrl.value) URL.revokeObjectURL(coverUrl.value)
-})
 </script>
 
 <template>
@@ -210,17 +226,14 @@ onBeforeUnmount(() => {
             <label>名称</label>
             <input v-model="name" maxlength="100" placeholder="文件名" />
           </div>
+          <div class="dialog-field">
+            <label>别名（引用名称）</label>
+            <input v-model="alias" maxlength="32" placeholder="如 img1" @input="onAliasInput" />
+            <p class="dialog-hint">正文中通过 media://别名 引用，仅限小写字母/数字/_/-，以字母开头，1-32 位</p>
+          </div>
           <div v-if="type === 'audio'" class="dialog-field">
             <label>封面</label>
-            <div class="dialog-cover">
-              <img v-if="coverUrl" :src="coverUrl" alt="封面" />
-              <span v-else class="dialog-cover-empty">未提取到封面</span>
-              <label class="dialog-btn small cover-pick">
-                上传封面
-                <input type="file" accept="image/*" @change="onCoverPick" />
-              </label>
-              <button v-if="coverUrl" class="dialog-btn small" type="button" @click="clearCover">移除封面</button>
-            </div>
+            <MediaCoverPicker v-model="coverBlob" />
           </div>
           <div v-if="type === 'audio' || type === 'video'" class="dialog-field">
             <label>时长（秒）</label>
@@ -250,7 +263,7 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(15, 23, 42, 0.45);
+  background: var(--overlay-bg);
   backdrop-filter: blur(6px);
 }
 
@@ -306,7 +319,6 @@ onBeforeUnmount(() => {
   padding: 0.75rem;
   border: 2px dashed var(--border-strong);
   border-radius: 10px;
-  background: var(--bg-muted);
   color: var(--text-muted);
   font-size: 0.85rem;
   text-align: center;
@@ -353,25 +365,6 @@ onBeforeUnmount(() => {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 15%, transparent);
 }
 
-.dialog-cover {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.dialog-cover img {
-  width: 4.5rem;
-  height: 4.5rem;
-  object-fit: cover;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-}
-
-.dialog-cover-empty {
-  font-size: 0.8rem;
-  color: var(--text-faint);
-}
-
 .dialog-hint {
   margin: 0;
   font-size: 0.8rem;
@@ -406,21 +399,6 @@ onBeforeUnmount(() => {
 
 .dialog-btn:hover {
   background: var(--bg-muted);
-}
-
-.dialog-btn.small {
-  padding: 0.25rem 0.7rem;
-  font-size: 0.8rem;
-  color: var(--primary);
-  border-color: var(--primary-soft-border);
-}
-
-.cover-pick {
-  cursor: pointer;
-}
-
-.cover-pick input {
-  display: none;
 }
 
 .dialog-btn.primary {

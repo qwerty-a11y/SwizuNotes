@@ -21,11 +21,15 @@ import com.swizu.swizunotes.entity.StaticResource;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
 public interface StaticResourceRepository extends JpaRepository<StaticResource, String> {
 
     Optional<StaticResource> findById(String id);
+
+    /** 主题文件按主题名前缀查（<name>-light.* / <name>-dark.*） */
+    List<StaticResource> findByIdStartingWith(String prefix);
 
 }

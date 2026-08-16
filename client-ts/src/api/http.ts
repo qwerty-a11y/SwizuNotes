@@ -17,13 +17,15 @@
 
 import axios, { type AxiosRequestConfig, type InternalAxiosRequestConfig } from 'axios'
 import router from '@/router'
+import { API_BASE } from '@/api/base'
 import type { Result } from '@/types/api'
 import type { LoginResponse } from '@/types/media'
 
+export { API_BASE }
 export const TOKEN_KEY = 'swizu_token'
 export const REFRESH_TOKEN_KEY = 'swizu_refresh_token'
-
-export const API_BASE: string = import.meta.env.VITE_API_BASE_URL || '/api/v1'
+/** 媒体专用令牌（12 小时，仅媒体 URL query 使用；access token 不再进 URL） */
+export const MEDIA_TOKEN_KEY = 'swizu_media_token'
 
 export interface HttpInstance {
   get<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<T>
@@ -47,19 +49,34 @@ instance.interceptors.request.use((config) => {
 
 let refreshing: Promise<string> | null = null
 
+/** 会话代数：退出登录时自增；在途的令牌刷新发现代数变化即放弃写回（防"退出后悄悄重新登录"） */
+let authEpoch = 0
+export function invalidateAuth(): void {
+  authEpoch += 1
+}
+
 function clearAuth(): void {
   localStorage.removeItem(TOKEN_KEY)
   localStorage.removeItem(REFRESH_TOKEN_KEY)
+  localStorage.removeItem(MEDIA_TOKEN_KEY)
 }
 
 async function refreshAccessToken(): Promise<string> {
+  const epoch = authEpoch
   const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY)
   if (!refreshToken) throw new Error('无刷新令牌')
   const res = await axios.post<Result<LoginResponse>>(`${API_BASE}/session/refresh`, { refreshToken }, { timeout: 15000 })
   const data = res.data.data
+  if (epoch !== authEpoch) {
+    // 刷新期间用户已退出登录：放弃写回新令牌
+    throw new Error('会话已注销')
+  }
   localStorage.setItem(TOKEN_KEY, data.accessToken)
   if (data.refreshToken) {
     localStorage.setItem(REFRESH_TOKEN_KEY, data.refreshToken)
+  }
+  if (data.mediaToken) {
+    localStorage.setItem(MEDIA_TOKEN_KEY, data.mediaToken)
   }
   return data.accessToken
 }

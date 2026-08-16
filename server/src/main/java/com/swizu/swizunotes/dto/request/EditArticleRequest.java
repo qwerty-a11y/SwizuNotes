@@ -27,8 +27,8 @@ import lombok.Data;
 
 @Data
 public class EditArticleRequest {
-    @NotBlank(message = "标题不能为空")
-    @Size(max = 100, message = "标题长度不能超过100")
+    // 标题允许为空（空白草稿预留 id 需要空标题）；发布状态下的非空校验在服务层执行
+    @Size(max = 50, message = "标题长度不能超过50")
     private String title;
     @Size(max = 64, message = "封面图ID无效")
     private String cover;
@@ -37,6 +37,6 @@ public class EditArticleRequest {
     private ArticleContent content;
     @Size(max = 50, message = "摘要长度不能超过50")
     private String summary;
-    @NotBlank
+    @NotNull(message = "发布状态不能为空")
     private ArticleStatus status;
 }

@@ -4,8 +4,31 @@
   box-sizing: border-box;
 }
 
-html {
-  color-scheme: light;
+/* color-scheme 由主题 css 决定（:root 内声明），此处不写死 */
+
+/* 主题切换（View Transitions API，见 src/theme/index.ts）：整页快照交叉淡化，
+   横幅背景图/渐隐渐变等 background-image 也统一过渡；
+   时长与下方降级用的颜色过渡保持一致（0.4s ease） */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.4s;
+  animation-timing-function: ease;
+}
+
+/* 主题切换渐变（降级路径，无 View Transitions 的浏览器）：html 带 .theme-transition
+   期间（约 0.5s，见 src/theme/index.ts），所有颜色类属性强制过渡；
+   class 移除后立即恢复各组件自身 transition */
+html.theme-transition,
+html.theme-transition *,
+html.theme-transition *::before,
+html.theme-transition *::after {
+  transition:
+    background-color 0.4s ease,
+    color 0.4s ease,
+    border-color 0.4s ease,
+    box-shadow 0.4s ease,
+    fill 0.4s ease,
+    stroke 0.4s ease !important;
 }
 
 body {

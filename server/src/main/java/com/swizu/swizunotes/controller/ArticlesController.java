@@ -21,9 +21,11 @@ import com.swizu.swizunotes.common.Result;
 import com.swizu.swizunotes.dto.request.EditArticleRequest;
 import com.swizu.swizunotes.dto.response.ArticleSummaryResponse;
 import com.swizu.swizunotes.dto.response.EditArticleResponse;
+import com.swizu.swizunotes.dto.response.MediaResponse;
 import com.swizu.swizunotes.entity.Article;
 import com.swizu.swizunotes.services.ArticleService;
 import com.swizu.swizunotes.services.CustomUserDetails;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -51,8 +53,9 @@ public class ArticlesController {
     */
 
     @GetMapping("/")
-    public ResponseEntity<Result<List<ArticleSummaryResponse>>> getPublishedArticles() {
-        return ResponseEntity.ok(new Result<>("获取文章列表成功", articleService.getPublishedArticles()));
+    public ResponseEntity<Result<List<ArticleSummaryResponse>>> getPublishedArticles(
+            @RequestParam(required = false) String keyword) {
+        return ResponseEntity.ok(new Result<>("获取文章列表成功", articleService.getPublishedArticles(keyword)));
     }
 
     @GetMapping("/{articleId}")
@@ -61,14 +64,21 @@ public class ArticlesController {
                 articleService.getArticle(articleId, userId(user))));
     }
 
+    @GetMapping("/{articleId}/media")
+    public ResponseEntity<Result<List<MediaResponse>>> getArticleMedia(@PathVariable Integer articleId,
+                                                                       @AuthenticationPrincipal CustomUserDetails user) {
+        return ResponseEntity.ok(new Result<>("获取媒体列表成功",
+                articleService.getArticleMedia(articleId, userId(user))));
+    }
+
     @PostMapping("/")
-    public ResponseEntity<Result<EditArticleResponse>> createArticle(@RequestBody EditArticleRequest article, @AuthenticationPrincipal CustomUserDetails user) {
+    public ResponseEntity<Result<EditArticleResponse>> createArticle(@Valid @RequestBody EditArticleRequest article, @AuthenticationPrincipal CustomUserDetails user) {
         return ResponseEntity.ok(new Result<>("创建文章成功",
                 articleService.createArticle(article, userId(user))));
     }
 
     @PutMapping("/{articleId}")
-    public ResponseEntity<Result<EditArticleResponse>> updateArticle(@PathVariable Integer articleId, @RequestBody EditArticleRequest article, @AuthenticationPrincipal CustomUserDetails user) {
+    public ResponseEntity<Result<EditArticleResponse>> updateArticle(@PathVariable Integer articleId, @Valid @RequestBody EditArticleRequest article, @AuthenticationPrincipal CustomUserDetails user) {
         return ResponseEntity.ok(new Result<>("修改文章成功",
                 articleService.updateArticle(articleId, article, userId(user))));
     }
